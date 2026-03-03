@@ -1,22 +1,21 @@
-// controllers/paymentController.js - Payment recording & management
+// controllers/paymentController.js
 const Payment = require('../models/Payment');
 const User = require('../models/User');
 
-// @desc    Record a payment from member to admin
+// @desc    Record a payment
 // @route   POST /api/payments
 // @access  Private (Admin)
 const recordPayment = async (req, res) => {
   try {
     const { memberId, amount, note, paymentMethod, date } = req.body;
 
-    // Validate member belongs to group
-    const member = await User.findOne({
-      _id: memberId,
-      groupId: req.user.groupId,
-    });
+    const adminId = req.user._id.toString();
+    const isAdminPayingHimself = memberId === adminId;
 
-    if (!member) {
-      return res.status(404).json({ success: false, message: 'Member not found in your group' });
+    // Validate the person paying belongs to the group
+    const payer = await User.findOne({ _id: memberId, groupId: req.user.groupId });
+    if (!payer) {
+      return res.status(404).json({ success: false, message: 'Person not found in your group' });
     }
 
     if (amount <= 0) {
@@ -34,29 +33,29 @@ const recordPayment = async (req, res) => {
       date: date || Date.now(),
     });
 
-    // ✅ FIXED LOGIC:
-    // Member paid admin → member's debt reduces (balance goes toward 0 from negative)
-    // Member: balance += amount  (e.g. was -2000, now -2000 + 2000 = 0)
-    await User.findByIdAndUpdate(memberId, { $inc: { balance: amount } });
-
-    // ✅ FIXED LOGIC:
-    // Admin received money → admin's receivable reduces
-    // Admin had +2000 (people owe him), now after receiving payment it becomes 0
-    // So admin balance also decreases by amount (receivable collected)
-    await User.findByIdAndUpdate(req.user._id, { $inc: { balance: -amount } });
+    if (isAdminPayingHimself) {
+      // ✅ Admin settling own balance:
+      // Admin's balance decreases (he collected his own share or is settling something)
+      await User.findByIdAndUpdate(adminId, { $inc: { balance: -amount } });
+    } else {
+      // ✅ Member paying admin:
+      // Member's debt reduces (balance goes toward 0 from negative)
+      await User.findByIdAndUpdate(memberId, { $inc: { balance: amount } });
+      // Admin's receivable reduces (he received this amount so less is owed to him)
+      await User.findByIdAndUpdate(adminId, { $inc: { balance: -amount } });
+    }
 
     const populatedPayment = await Payment.findById(payment._id)
-      .populate('member', 'name email')
+      .populate('member', 'name email role')
       .populate('receivedBy', 'name');
 
-    // Fetch updated member to return new balance
-    const updatedMember = await User.findById(memberId).select('balance');
+    const updatedPayer = await User.findById(memberId).select('balance');
 
     res.status(201).json({
       success: true,
-      message: `Payment of Rs. ${amount} recorded from ${member.name}`,
+      message: `Payment of Rs. ${amount} recorded from ${payer.name}`,
       payment: populatedPayment,
-      newMemberBalance: updatedMember.balance,
+      newMemberBalance: updatedPayer.balance,
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -72,7 +71,6 @@ const getPayments = async (req, res) => {
 
     const query = { groupId: req.user.groupId };
 
-    // Members can only see their own payments
     if (req.user.role === 'member') {
       query.member = req.user._id;
     } else if (memberId) {
@@ -81,13 +79,12 @@ const getPayments = async (req, res) => {
 
     const total = await Payment.countDocuments(query);
     const payments = await Payment.find(query)
-      .populate('member', 'name email')
+      .populate('member', 'name email role')
       .populate('receivedBy', 'name')
       .sort({ date: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);
 
-    // Total received this month
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const monthlyTotal = await Payment.aggregate([
@@ -110,7 +107,7 @@ const getPayments = async (req, res) => {
   }
 };
 
-// @desc    Delete a payment (reverse the transaction)
+// @desc    Delete/reverse a payment
 // @route   DELETE /api/payments/:id
 // @access  Private (Admin)
 const deletePayment = async (req, res) => {
@@ -125,9 +122,17 @@ const deletePayment = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
 
-    // ✅ Reverse: member goes back to owing, admin's receivable goes back up
-    await User.findByIdAndUpdate(payment.member, { $inc: { balance: -payment.amount } });
-    await User.findByIdAndUpdate(payment.receivedBy, { $inc: { balance: payment.amount } });
+    const adminId = req.user._id.toString();
+    const isAdminSelfPayment = payment.member.toString() === adminId;
+
+    if (isAdminSelfPayment) {
+      // Reverse admin's own payment
+      await User.findByIdAndUpdate(adminId, { $inc: { balance: payment.amount } });
+    } else {
+      // Reverse member payment: restore member's debt, restore admin's receivable
+      await User.findByIdAndUpdate(payment.member, { $inc: { balance: -payment.amount } });
+      await User.findByIdAndUpdate(payment.receivedBy, { $inc: { balance: payment.amount } });
+    }
 
     await payment.deleteOne();
 

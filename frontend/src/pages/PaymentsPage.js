@@ -45,7 +45,7 @@ const PaymentsPage = () => {
     if (isAdmin) {
       groupAPI.getGroup().then(res => {
         setAllMembers(res.data.group.members);
-      }).catch(() => {});
+      }).catch(() => { });
     }
   }, [isAdmin]);
 
@@ -224,8 +224,8 @@ const PaymentsPage = () => {
                     {m.balance < 0
                       ? ` — owes Rs. ${Math.abs(m.balance).toLocaleString()}`
                       : m.balance === 0
-                      ? ' — settled'
-                      : ` — overpaid Rs. ${m.balance.toLocaleString()}`}
+                        ? ' — settled'
+                        : ` — overpaid Rs. ${m.balance.toLocaleString()}`}
                   </option>
                 ))}
               </optgroup>

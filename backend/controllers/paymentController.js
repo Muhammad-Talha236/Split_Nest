@@ -1,4 +1,8 @@
 // controllers/paymentController.js
+// ✅ FIXED: Admin self-payment ab properly track hota hai
+// Admin jab kuch spend karta hai (apna share deta hai) — uski balance NEGATIVE ho jaati hai
+// Admin jab member se paisa receive karta hai — uski balance POSITIVE rehti hai
+
 const Payment = require('../models/Payment');
 const User = require('../models/User');
 
@@ -34,15 +38,17 @@ const recordPayment = async (req, res) => {
     });
 
     if (isAdminSelfPayment) {
-      // ✅ Admin paying their own share:
-      // Admin paid his own share from his pocket → his receivable reduces
-      // e.g. Admin balance was +3000 (others owe him), he pays his own 1000 → +2000
+      // ✅ Admin apna share pay kar raha hai:
+      // Admin ne apni pocket se amount diya → uski "receivable" balance kam ho
+      // e.g. Admin balance tha +3000 (members uska dete hain), ab usne 1000 diya → +2000
+      // Matlab uski net position mein se ye amount minus ho gaya
       await User.findByIdAndUpdate(adminId, { $inc: { balance: -amount } });
     } else {
-      // ✅ Member paying admin:
-      // Member's debt reduces (balance goes toward 0 from negative)
+      // ✅ Member admin ko pay kar raha hai:
+      // Member ka debt kam hota hai (negative balance → 0 ki taraf)
       await User.findByIdAndUpdate(memberId, { $inc: { balance: amount } });
-      // Admin's receivable reduces (he received this cash)
+      // Admin ko paisa mila → lekin uski "receivable" bhi utni hi kam ho gayi
+      // Kyunki jo member deta hai wo already admin ki balance mein count tha
       await User.findByIdAndUpdate(adminId, { $inc: { balance: -amount } });
     }
 
@@ -54,7 +60,9 @@ const recordPayment = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: `Payment of Rs. ${amount} recorded from ${payer.name}`,
+      message: isAdminSelfPayment
+        ? `Your share payment of Rs. ${amount} recorded`
+        : `Payment of Rs. ${amount} recorded from ${payer.name}`,
       payment: populatedPayment,
       newPayerBalance: updatedPayer.balance,
     });
@@ -123,10 +131,10 @@ const deletePayment = async (req, res) => {
     const isAdminSelfPayment = payment.member.toString() === adminId;
 
     if (isAdminSelfPayment) {
-      // Reverse admin self-payment → restore admin balance
+      // ✅ Reverse admin self-payment → admin ki balance wapas restore ho
       await User.findByIdAndUpdate(adminId, { $inc: { balance: payment.amount } });
     } else {
-      // Reverse member payment → restore member's debt + restore admin's receivable
+      // ✅ Reverse member payment → member ka debt wapas aa jaye + admin ki receivable restore ho
       await User.findByIdAndUpdate(payment.member, { $inc: { balance: -payment.amount } });
       await User.findByIdAndUpdate(payment.receivedBy, { $inc: { balance: payment.amount } });
     }

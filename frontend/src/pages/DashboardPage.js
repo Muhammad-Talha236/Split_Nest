@@ -1,4 +1,4 @@
-// pages/DashboardPage.js - Fixed Cash stat + live balance
+// pages/DashboardPage.js - Fixed My Balance + Added Available Balance card
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -107,19 +107,17 @@ const DashboardPage = () => {
     return { day, amount: found?.total || 0 };
   });
 
-  // ✅ FIXED: Cash = total payments received by admin (admin's actual collected cash)
-  // Admin balance tracks: positive = still owed, but decreases as payments come in
-  // So "collected cash" = totalReceivable (what was owed) - adminBalance (what's still owed)
-  const totalOwed = stats?.memberBalances
-    ?.filter(m => m.role !== 'admin' && m.balance < 0)
-    .reduce((sum, m) => sum + Math.abs(m.balance), 0) || 0;
+  // ✅ FIX 1: Admin ka apna net balance (sirf +/- value from user object)
+  // Positive = members usse paise dete hain
+  // Negative = admin ne zyada de diya
+  const adminNetBalance = user?.balance ?? 0;
 
-  const adminBalance = stats?.memberBalances?.find(m => m.role === 'admin')?.balance || 0;
+  // ✅ FIX 2: Total Receivable = jo members abhi bhi dene hain (negative balance wale members)
+  const totalReceivable = stats?.totalReceivable || 0;
 
-  // ✅ Use user.balance from AuthContext for topbar (always live)
-  // For dashboard Cash card: show admin's current receivable balance (what people still owe)
-  // This is the same as adminBalance from stats, but we use user.balance for live updates
-  const cashValue = user?.balance ?? adminBalance;
+  // ✅ FIX 3: "Available in Khata" = admin ka current net balance
+  // Yeh woh amount hai jo admin ko milna chahiye (jo baaki hai)
+  const availableBalance = adminNetBalance;
 
   return (
     <div style={{ maxWidth: '100%', overflowX: 'hidden' }}>
@@ -138,32 +136,38 @@ const DashboardPage = () => {
         </p>
       </div>
 
-      {/* Stat Cards */}
+      {/* ✅ FIXED Stat Cards - 2x2 grid on mobile, 4 cols on desktop */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)',
         gap: isMobile ? 8 : 16,
         marginBottom: isMobile ? 16 : 24
       }}>
-        {/* ✅ Cash = admin's current balance (live from AuthContext user) */}
+        {/* Card 1: My Balance — admin ka sirf apna +/- balance */}
         <StatCard
           icon="💰"
           label="My Balance"
-          value={`${cashValue >= 0 ? '+' : ''}Rs. ${Math.abs(cashValue).toLocaleString()}`}
-          color={cashValue >= 0 ? '#2ECC9A' : '#FF5C6A'}
+          value={`${adminNetBalance >= 0 ? '+' : ''}Rs. ${Math.abs(adminNetBalance).toLocaleString()}`}
+          color={adminNetBalance >= 0 ? '#2ECC9A' : '#FF5C6A'}
         />
+
+        {/* Card 2: Monthly expenses total */}
         <StatCard
           icon="📊"
           label="Monthly"
           value={`Rs. ${(stats?.monthlyTotal || 0).toLocaleString()}`}
           color="#5B8DEF"
         />
+
+        {/* Card 3: Receivable — jo members abhi dene hain */}
         <StatCard
           icon="📥"
           label="Receivable"
-          value={`Rs. ${(stats?.totalReceivable || 0).toLocaleString()}`}
+          value={`Rs. ${totalReceivable.toLocaleString()}`}
           color="#FFB547"
         />
+
+        {/* Card 4: Members count */}
         <StatCard
           icon="👥"
           label="Members"
@@ -171,6 +175,92 @@ const DashboardPage = () => {
           color="#E879F9"
         />
       </div>
+
+      {/* ✅ NEW: Khata Balance Banner — prominent display */}
+      {user?.role === 'admin' && (
+        <div style={{
+          background: 'linear-gradient(135deg, #0f1f18 0%, #0a1a14 100%)',
+          border: '1px solid rgba(46,204,154,0.3)',
+          borderRadius: 16,
+          padding: isMobile ? '16px 20px' : '20px 28px',
+          marginBottom: isMobile ? 16 : 24,
+          display: 'flex',
+          flexDirection: isMobile ? 'column' : 'row',
+          alignItems: isMobile ? 'flex-start' : 'center',
+          justifyContent: 'space-between',
+          gap: 12,
+          position: 'relative',
+          overflow: 'hidden',
+        }}>
+          {/* Background glow */}
+          <div style={{
+            position: 'absolute', top: -30, right: -30,
+            width: 120, height: 120, borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(46,204,154,0.15), transparent 70%)',
+            pointerEvents: 'none',
+          }} />
+
+          <div>
+            <div style={{
+              fontSize: isMobile ? 11 : 12,
+              color: 'rgba(46,204,154,0.7)',
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              letterSpacing: 1,
+              marginBottom: 6,
+            }}>
+              🏦 Khata Balance (Available)
+            </div>
+            <div style={{
+              fontFamily: "'Syne', sans-serif",
+              fontWeight: 900,
+              fontSize: isMobile ? 28 : 36,
+              color: availableBalance >= 0 ? '#2ECC9A' : '#FF5C6A',
+              letterSpacing: -1,
+              lineHeight: 1,
+            }}>
+              {availableBalance >= 0 ? '+' : ''}Rs. {Math.abs(availableBalance).toLocaleString()}
+            </div>
+            <div style={{
+              fontSize: isMobile ? 11 : 12,
+              color: 'rgba(255,255,255,0.4)',
+              marginTop: 6,
+            }}>
+              {availableBalance >= 0
+                ? `Members owe you this amount`
+                : `You have overspent by this amount`}
+            </div>
+          </div>
+
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 8,
+            minWidth: isMobile ? '100%' : 200,
+          }}>
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '8px 14px', borderRadius: 10,
+              background: 'rgba(255,181,71,0.1)', border: '1px solid rgba(255,181,71,0.2)',
+            }}>
+              <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>Pending collection</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: '#FFB547' }}>
+                Rs. {totalReceivable.toLocaleString()}
+              </span>
+            </div>
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '8px 14px', borderRadius: 10,
+              background: 'rgba(91,141,239,0.1)', border: '1px solid rgba(91,141,239,0.2)',
+            }}>
+              <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>This month total</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: '#5B8DEF' }}>
+                Rs. {(stats?.monthlyTotal || 0).toLocaleString()}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? 16 : 20 }}>

@@ -16,7 +16,7 @@ const COLORS = ['#2ECC9A', '#5B8DEF', '#FFB547', '#E879F9', '#FB923C', '#34D399'
 const PaymentsPage = () => {
   const { isAdmin, updateUser, user } = useAuth();
   const [payments, setPayments] = useState([]);
-  const [allMembers, setAllMembers] = useState([]); // all including admin
+  const [allMembers, setAllMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({ page: 1, pages: 1 });
   const [monthlyTotal, setMonthlyTotal] = useState(0);
@@ -62,8 +62,7 @@ const PaymentsPage = () => {
     setSaving(true);
     try {
       await paymentAPI.recordPayment({ ...form, amount: parseFloat(form.amount) });
-      const isAdminSelf = form.memberId === user?._id;
-      toast.success(isAdminSelf ? 'Your share payment recorded!' : 'Payment recorded!');
+      toast.success('Payment recorded!');
       setShowModal(false);
       setForm({ memberId: '', amount: '', note: '', paymentMethod: 'cash', date: '' });
       await loadPayments();
@@ -90,12 +89,12 @@ const PaymentsPage = () => {
     setForm({ memberId: '', amount: '', note: '', paymentMethod: 'cash', date: format(new Date(), 'yyyy-MM-dd') });
   };
 
-  // Separate regular members and admin
+  // ✅ Sab members — admin bhi unhi mein, koi special grouping nahi
   const regularMembers = allMembers.filter(m => m.role !== 'admin');
   const adminMember = allMembers.find(m => m.role === 'admin');
-
-  // Selected member's balance for hint
   const selectedMember = allMembers.find(m => m._id === form.memberId);
+  // ✅ Admin selected hai ya nahi — sirf hint ke liye, color/style same rahega
+  const isAdminSelected = selectedMember?._id === user?._id;
 
   return (
     <div>
@@ -108,7 +107,7 @@ const PaymentsPage = () => {
             Payments
           </h2>
           <p style={{ color: 'var(--text-muted)', fontSize: 13, margin: '4px 0 0' }}>
-            Track payments received from members
+            Track payments received · your own share payments
           </p>
         </div>
         {isAdmin && (
@@ -150,6 +149,7 @@ const PaymentsPage = () => {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             {payments.map((p, i) => {
+              // ✅ Admin ki payment bhi normal user ki tarah treat — koi special color/badge nahi
               const isAdminSelf = p.member?.role === 'admin';
               return (
                 <div key={p._id} style={{
@@ -164,15 +164,16 @@ const PaymentsPage = () => {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                     <Avatar name={p.member?.name || '?'} size={40} color={COLORS[i % COLORS.length]} />
                     <div>
-                      <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: 14, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                         {p.member?.name}
-                        {isAdminSelf && (
-                          <span style={{
-                            fontSize: 10, padding: '2px 7px', borderRadius: 99,
-                            background: 'var(--yellow-soft)', color: 'var(--yellow)',
-                            fontWeight: 700, border: '1px solid rgba(255,181,71,0.3)'
-                          }}>MY SHARE</span>
-                        )}
+                        {/* ✅ Sirf ek simple badge — same style for everyone */}
+                        <span style={{
+                          fontSize: 10, padding: '2px 7px', borderRadius: 99,
+                          background: 'var(--accent-soft)', color: 'var(--accent)',
+                          fontWeight: 700, border: '1px solid var(--accent-glow)',
+                        }}>
+                          {isAdminSelf ? 'OWN SHARE' : 'PAID'}
+                        </span>
                       </div>
                       <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
                         {format(new Date(p.date), 'MMM d, yyyy')}
@@ -182,11 +183,9 @@ const PaymentsPage = () => {
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                    <div style={{
-                      fontWeight: 800, fontSize: 16,
-                      color: isAdminSelf ? 'var(--yellow)' : 'var(--accent)'
-                    }}>
-                      {isAdminSelf ? '-' : '+'}Rs. {p.amount?.toLocaleString()}
+                    {/* ✅ Same green color for ALL payments — admin bhi normal */}
+                    <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--accent)' }}>
+                      +Rs. {p.amount?.toLocaleString()}
                     </div>
                     {isAdmin && (
                       <button onClick={() => setDeleteId(p._id)} style={{
@@ -210,37 +209,58 @@ const PaymentsPage = () => {
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Record Payment">
 
         <FormField label="Who paid?" required>
-          <select value={form.memberId} onChange={e => setForm(f => ({ ...f, memberId: e.target.value }))}>
+          <select
+            value={form.memberId}
+            onChange={e => setForm(f => ({ ...f, memberId: e.target.value }))}
+          >
             <option value="">Select person...</option>
 
+            {/* ✅ Regular members pehle */}
             {regularMembers.length > 0 && (
               <optgroup label="Members">
                 {regularMembers.map(m => (
                   <option key={m._id} value={m._id}>
-                    {m.name} — owes Rs. {Math.abs(m.balance).toLocaleString()}
+                    {m.name}
+                    {m.balance < 0
+                      ? ` — owes Rs. ${Math.abs(m.balance).toLocaleString()}`
+                      : m.balance === 0
+                      ? ' — settled'
+                      : ` — overpaid Rs. ${m.balance.toLocaleString()}`}
                   </option>
                 ))}
               </optgroup>
             )}
 
+            {/* ✅ Admin khud — same style, bas label mein "my share" */}
             {adminMember && (
-              <optgroup label="Admin (My own share)">
+              <optgroup label="Myself">
                 <option value={adminMember._id}>
-                  {adminMember.name} — Pay my own share
+                  {adminMember.name} (me) — pay my own share
                 </option>
               </optgroup>
             )}
           </select>
         </FormField>
 
-        {/* Hint when admin self is selected */}
-        {selectedMember?.role === 'admin' && (
+        {/* ✅ Hint: admin select hone par simple explanation, koi special color nahi */}
+        {isAdminSelected && (
           <div style={{
             padding: '10px 14px', borderRadius: 10, marginBottom: 4,
-            background: 'var(--yellow-soft)', border: '1px solid rgba(255,181,71,0.3)',
-            fontSize: 12, color: 'var(--yellow)', lineHeight: 1.5
+            background: 'var(--surface-alt)', border: '1px solid var(--border)',
+            fontSize: 12, color: 'var(--text-dim)', lineHeight: 1.5,
           }}>
-            💡 This will record your own share payment and reduce your receivable balance by this amount.
+            💡 Apna share record karo — tumhari balance update hogi, members ki receivable unchanged rahegi.
+          </div>
+        )}
+
+        {/* Member balance hint */}
+        {selectedMember && !isAdminSelected && selectedMember.balance < 0 && (
+          <div style={{
+            padding: '10px 14px', borderRadius: 10, marginBottom: 4,
+            background: 'var(--red-soft)', border: '1px solid rgba(255,92,106,0.2)',
+            fontSize: 12, color: 'var(--red)', lineHeight: 1.5,
+          }}>
+            ⚠️ {selectedMember.name} abhi Rs. {Math.abs(selectedMember.balance).toLocaleString()} owe karta hai
           </div>
         )}
 
@@ -269,7 +289,7 @@ const PaymentsPage = () => {
         </div>
 
         <FormField label="Note (optional)">
-          <input value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} placeholder="e.g. Rent share" />
+          <input value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} placeholder="e.g. Rent share, grocery share" />
         </FormField>
 
         <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
@@ -278,6 +298,7 @@ const PaymentsPage = () => {
             border: '1px solid var(--border)', background: 'var(--surface)',
             color: 'var(--text-muted)', fontWeight: 700, cursor: 'pointer'
           }}>Cancel</button>
+          {/* ✅ Same green button for everyone — no special yellow */}
           <button onClick={handleRecord} disabled={saving} style={{
             flex: 2, padding: '11px', borderRadius: 10, border: 'none',
             background: 'linear-gradient(135deg, #2ECC9A, #1A7A5C)',

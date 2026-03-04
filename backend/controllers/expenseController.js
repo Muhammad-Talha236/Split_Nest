@@ -54,7 +54,19 @@ const getExpenses = async (req, res) => {
 // @access  Private (Admin)
 const addExpense = async (req, res) => {
   try {
-    const { title, description, amount, dividedAmong, date, category } = req.body;
+    const { title, description, dividedAmong, date, category } = req.body;
+
+    // ✅ FIX 1: req.body values are strings — parse amount to float explicitly.
+    // Without this, amount.toFixed() throws "amount.toFixed is not a function" → 500 error.
+    const amount = parseFloat(req.body.amount);
+
+    if (isNaN(amount) || amount <= 0) {
+      return res.status(400).json({ success: false, message: 'Valid amount is required' });
+    }
+
+    if (!dividedAmong || dividedAmong.length === 0) {
+      return res.status(400).json({ success: false, message: 'Select at least one member to split between' });
+    }
 
     // Validate members belong to same group
     const members = await User.find({
@@ -69,6 +81,7 @@ const addExpense = async (req, res) => {
       });
     }
 
+    // splitAmount = amount ÷ how many people are selected (admin + selected members)
     const splitAmount = parseFloat((amount / dividedAmong.length).toFixed(2));
 
     // Create expense
@@ -85,39 +98,45 @@ const addExpense = async (req, res) => {
     });
 
     // ─── BALANCE LOGIC ─────────────────────────────────────────────────────────
-    // Admin paid the full amount up front.
     //
-    // For each NON-ADMIN member in dividedAmong:
-    //   member.balance -= splitAmount   (they owe admin their share)
+    // Admin paid the FULL amount from his pocket. The split tells us how much
+    // each selected person owes.
     //
-    // For the admin:
-    //   IF admin is included in the split, his share is splitAmount.
-    //   - admin.balance += (amount - splitAmount)  — receivable from other members only
-    //   - admin.adminShareOwed += splitAmount       — he owes himself this share
+    // CASE A — Admin IS selected (e.g. 4 people, Rs.1000 → Rs.250 each):
+    //   • salman  balance -= 250   (owes admin)
+    //   • shahzman balance -= 250  (owes admin)
+    //   • ahmad   balance -= 250   (owes admin)
+    //   • Admin receivable += 750  (sum of 3 non-admin shares = splitAmount × 3)
+    //   • Admin adminShareOwed += 250  (his own personal share to track)
     //
-    //   IF admin is NOT in dividedAmong:
-    //   - admin.balance += amount  — all members owe him the full amount
-    //   - adminShareOwed unchanged — he has no personal share in this expense
+    // CASE B — Admin NOT selected (e.g. 3 members, Rs.1000 → Rs.333 each):
+    //   • salman  balance -= 333
+    //   • shahzman balance -= 333
+    //   • ahmad   balance -= 333
+    //   • Admin receivable += 999  (splitAmount × 3 non-admin members)
+    //   • Admin has no personal share here
+    //
+    // ✅ FIX 2: Old code used `amount.toFixed(2)` for admin receivable when admin
+    // was NOT included — that caused the crash AND was logically wrong due to
+    // floating-point rounding. Correct formula: splitAmount × nonAdminCount.
     // ───────────────────────────────────────────────────────────────────────────
 
     const adminId       = req.user._id.toString();
     const adminIncluded = dividedAmong.map(id => id.toString()).includes(adminId);
+    const nonAdminIds   = dividedAmong.filter(id => id.toString() !== adminId);
 
-    for (const memberId of dividedAmong) {
-      if (memberId.toString() === adminId) continue; // Skip admin's own share row
+    // Deduct each non-admin member's share
+    for (const memberId of nonAdminIds) {
       await User.findByIdAndUpdate(memberId, {
         $inc: { balance: -splitAmount },
       });
     }
 
-    const adminReceivable = adminIncluded
-      ? parseFloat((amount - splitAmount).toFixed(2))  // only other members' shares
-      : parseFloat(amount.toFixed(2));                  // all members owe full amount
+    // Admin's receivable = only what non-admin members owe him
+    const adminReceivable = parseFloat((splitAmount * nonAdminIds.length).toFixed(2));
 
-    // Build admin update object
     const adminUpdate = { $inc: { balance: adminReceivable } };
     if (adminIncluded) {
-      // Track admin's own personal share — he needs to pay this himself
       adminUpdate.$inc.adminShareOwed = splitAmount;
     }
 
@@ -160,19 +179,17 @@ const updateExpense = async (req, res) => {
     const adminId = expense.paidBy.toString();
 
     // ─── Reverse old balance changes ─────────────────────────────────────────
-    const oldSplit        = parseFloat((expense.amount / expense.dividedAmong.length).toFixed(2));
+    const oldSplit         = parseFloat((expense.amount / expense.dividedAmong.length).toFixed(2));
     const oldAdminIncluded = expense.dividedAmong.map(id => id.toString()).includes(adminId);
+    const oldNonAdmin      = expense.dividedAmong.filter(id => id.toString() !== adminId);
 
-    for (const memberId of expense.dividedAmong) {
-      if (memberId.toString() === adminId) continue;
+    for (const memberId of oldNonAdmin) {
       await User.findByIdAndUpdate(memberId, { $inc: { balance: oldSplit } });
     }
 
-    const oldAdminReceivable = oldAdminIncluded
-      ? parseFloat((expense.amount - oldSplit).toFixed(2))
-      : parseFloat(expense.amount.toFixed(2));
-
-    const oldAdminReversal = { $inc: { balance: -oldAdminReceivable } };
+    // ✅ Use same formula as addExpense: splitAmount × nonAdminCount
+    const oldAdminReceivable = parseFloat((oldSplit * oldNonAdmin.length).toFixed(2));
+    const oldAdminReversal   = { $inc: { balance: -oldAdminReceivable } };
     if (oldAdminIncluded) {
       oldAdminReversal.$inc.adminShareOwed = -oldSplit;
     }
@@ -183,10 +200,13 @@ const updateExpense = async (req, res) => {
     });
 
     // ─── Update expense fields ────────────────────────────────────────────────
-    const { title, description, amount, dividedAmong, date, category } = req.body;
+    const { title, description, dividedAmong, date, category } = req.body;
+    // ✅ Always parse amount from string
+    const newAmount = req.body.amount ? parseFloat(req.body.amount) : expense.amount;
+
     expense.title        = title        || expense.title;
     expense.description  = description !== undefined ? description : expense.description;
-    expense.amount       = amount       || expense.amount;
+    expense.amount       = newAmount;
     expense.dividedAmong = dividedAmong || expense.dividedAmong;
     expense.date         = date         || expense.date;
     expense.category     = category     || expense.category;
@@ -194,20 +214,18 @@ const updateExpense = async (req, res) => {
     await expense.save();
 
     // ─── Apply new balance changes ────────────────────────────────────────────
-    const newSplit        = parseFloat((expense.amount / expense.dividedAmong.length).toFixed(2));
-    const newAdminId      = req.user._id.toString();
+    const newAdminId       = req.user._id.toString();
+    const newSplit         = expense.splitAmount;
     const newAdminIncluded = expense.dividedAmong.map(id => id.toString()).includes(newAdminId);
+    const newNonAdmin      = expense.dividedAmong.filter(id => id.toString() !== newAdminId);
 
-    for (const memberId of expense.dividedAmong) {
-      if (memberId.toString() === newAdminId) continue;
+    for (const memberId of newNonAdmin) {
       await User.findByIdAndUpdate(memberId, { $inc: { balance: -newSplit } });
     }
 
-    const newAdminReceivable = newAdminIncluded
-      ? parseFloat((expense.amount - newSplit).toFixed(2))
-      : parseFloat(expense.amount.toFixed(2));
-
-    const newAdminUpdate = { $inc: { balance: newAdminReceivable } };
+    // ✅ Correct formula: splitAmount × nonAdminCount
+    const newAdminReceivable = parseFloat((newSplit * newNonAdmin.length).toFixed(2));
+    const newAdminUpdate     = { $inc: { balance: newAdminReceivable } };
     if (newAdminIncluded) {
       newAdminUpdate.$inc.adminShareOwed = newSplit;
     }
@@ -241,21 +259,17 @@ const deleteExpense = async (req, res) => {
     const adminId      = expense.paidBy.toString();
     const splitAmount  = parseFloat((expense.amount / expense.dividedAmong.length).toFixed(2));
     const adminIncluded = expense.dividedAmong.map(id => id.toString()).includes(adminId);
+    const nonAdmin     = expense.dividedAmong.filter(id => id.toString() !== adminId);
 
-    // Reverse each member's balance
-    for (const memberId of expense.dividedAmong) {
-      if (memberId.toString() === adminId) continue;
+    // Reverse each non-admin member's balance
+    for (const memberId of nonAdmin) {
       await User.findByIdAndUpdate(memberId, { $inc: { balance: splitAmount } });
     }
 
-    // Reverse admin's receivable
-    const adminReceivable = adminIncluded
-      ? parseFloat((expense.amount - splitAmount).toFixed(2))
-      : parseFloat(expense.amount.toFixed(2));
-
-    const adminReversal = { $inc: { balance: -adminReceivable } };
+    // ✅ Use consistent formula: splitAmount × nonAdminCount
+    const adminReceivable = parseFloat((splitAmount * nonAdmin.length).toFixed(2));
+    const adminReversal   = { $inc: { balance: -adminReceivable } };
     if (adminIncluded) {
-      // Also remove the tracked share owed
       adminReversal.$inc.adminShareOwed = -splitAmount;
     }
     await User.findByIdAndUpdate(expense.paidBy, adminReversal);

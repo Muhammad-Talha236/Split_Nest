@@ -34,6 +34,19 @@ const getBalances = async (req, res) => {
         amount: parseFloat(Math.abs(m.balance).toFixed(2)),
       }));
 
+    // ✅ PRIVACY: Members only receive their OWN balance data.
+    // They do NOT see other members' names, balances, or any admin financial info.
+    if (req.user.role !== 'admin') {
+      const myData = members.find(m => m._id.toString() === req.user._id.toString());
+      return res.json({
+        success : true,
+        members : myData ? [myData] : [],
+        summary : { totalReceivable: 0, adminBalance: 0, adminShareStats: null },
+        settlements: [],
+      });
+    }
+
+    // Admin gets full data
     res.json({
       success : true,
       members,

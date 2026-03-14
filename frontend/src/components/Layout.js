@@ -12,7 +12,6 @@ const NAV_ITEMS = [
   { path: '/members', icon: '👥', label: 'Members' },
   { path: '/balances', icon: '⚖️', label: 'Balances' },
   { path: '/history', icon: '📜', label: 'History' },
-  { path: '/reports', icon: '📊', label: 'Reports' },
 ];
 
 const Avatar = ({ name, size = 36, color = '#2ECC9A' }) => {

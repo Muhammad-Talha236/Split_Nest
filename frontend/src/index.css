@@ -1,3 +1,8 @@
+/* ═══════════════════════════════════════════════════════════════════
+   KhataNest — Professional Typography System
+   Fonts: Plus Jakarta Sans (body/UI) · Syne (brand) · JetBrains Mono (numbers)
+   ═══════════════════════════════════════════════════════════════════ */
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 /* ── DARK MODE (default) ─────────────────────────────── */
@@ -49,13 +54,51 @@
   --shadow-md: 0 4px 20px rgba(0,0,0,0.12);
 }
 
-/* ── BASE ────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════
+   BASE — override 'DM Sans' everywhere
+   ═══════════════════════════════════════════════════════ */
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: 'DM Sans', sans-serif;
+  /* ✅ KEY CHANGE: Replace 'DM Sans' with 'Plus Jakarta Sans' */
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: 'kern' 1, 'liga' 1;
   transition: background 0.3s ease, color 0.3s ease;
+}
+
+/* ─── Override the hardcoded fontFamily in React components ──────── */
+/* App.js passes fontFamily: "'DM Sans', sans-serif" to Toaster */
+/* Layout.js uses fontFamily: "'DM Sans', sans-serif" inline */
+/* These selectors catch all of them */
+*[style*="DM Sans"],
+div[style*="DM Sans"],
+span[style*="DM Sans"],
+p[style*="DM Sans"],
+button[style*="DM Sans"] {
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+}
+
+/* ─── Syne stays for brand headings — reinforce it ───────────────── */
+*[style*="Syne"],
+h1[style*="Syne"],
+h2[style*="Syne"],
+div[style*="Syne"],
+h1, h2, h3 {
+  font-family: 'Syne', 'Plus Jakarta Sans', sans-serif !important;
+}
+
+/* ─── JetBrains Mono for all monospace / numeric displays ────────── */
+*[style*="monospace"],
+code, kbd, pre, samp {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace !important;
+  font-feature-settings: 'tnum' 1;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ── SCROLLBAR ───────────────────────────────────────── */
@@ -65,13 +108,14 @@ body {
 
 /* ── FORM ELEMENTS ───────────────────────────────────── */
 input, select, textarea {
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 10px 14px;
   color: var(--text);
   font-size: 14px;
+  font-weight: 400;
   width: 100%;
   transition: border-color 0.2s, box-shadow 0.2s, background 0.3s;
   outline: none;
@@ -82,7 +126,11 @@ input:focus, select:focus, textarea:focus {
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
-/* Light mode inputs need subtle background */
+input::placeholder, textarea::placeholder {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
 [data-theme="light"] input,
 [data-theme="light"] select,
 [data-theme="light"] textarea {
@@ -98,7 +146,12 @@ input:focus, select:focus, textarea:focus {
 }
 
 /* ── BUTTONS ─────────────────────────────────────────── */
-button { font-family: 'DM Sans', sans-serif; cursor: pointer; }
+button {
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  cursor: pointer;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
 
 /* ── TABLE HOVER ─────────────────────────────────────── */
 [data-theme="light"] tr:hover td {
@@ -137,7 +190,15 @@ button { font-family: 'DM Sans', sans-serif; cursor: pointer; }
 *, *::before, *::after {
   transition: background-color 0.25s ease, border-color 0.25s ease, color 0.1s ease;
 }
-/* But don't transition these (causes flicker) */
 input, select, textarea, button {
   transition: border-color 0.2s, box-shadow 0.2s, background-color 0.2s, color 0.1s;
+}
+
+/* ── FONT SMOOTHING ──────────────────────────────────── */
+[data-theme="dark"] * {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+[data-theme="light"] * {
+  -webkit-font-smoothing: subpixel-antialiased;
 }

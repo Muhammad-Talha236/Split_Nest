@@ -7,13 +7,14 @@ import { ThemeProvider } from './context/ThemeContext';
 import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
 import JoinPage from './pages/JoinPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 import DashboardPage from './pages/DashboardPage';
 import ExpensesPage from './pages/ExpensesPage';
 import PaymentsPage from './pages/PaymentsPage';
 import MembersPage from './pages/MembersPage';
 import BalancesPage from './pages/BalancesPage';
 import HistoryPage from './pages/HistoryPage';
-import ReportsPage from './pages/ReportsPage';
 import Spinner from './components/Spinner';
 
 // Protected route wrapper
@@ -43,9 +44,11 @@ const PublicRoute = ({ children }) => {
 const AppRoutes = () => (
   <Routes>
     {/* Public routes */}
-    <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
+    <Route path="/login"           element={<PublicRoute><LoginPage /></PublicRoute>} />
+    <Route path="/forgot-password" element={<PublicRoute><ForgotPasswordPage /></PublicRoute>} />
+    <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
 
-    {/* ✅ Invite join page — public, no auth needed, no sidebar */}
+    {/* Invite join page — public, no auth, no sidebar */}
     <Route path="/join/:token" element={<JoinPage />} />
 
     {/* Protected routes */}
@@ -55,7 +58,6 @@ const AppRoutes = () => (
     <Route path="/members"   element={<ProtectedRoute adminOnly><MembersPage /></ProtectedRoute>} />
     <Route path="/balances"  element={<ProtectedRoute><BalancesPage /></ProtectedRoute>} />
     <Route path="/history"   element={<ProtectedRoute><HistoryPage /></ProtectedRoute>} />
-    <Route path="/reports"   element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
 
     {/* Fallbacks */}
     <Route path="/"  element={<Navigate to="/dashboard" replace />} />

@@ -10,6 +10,7 @@ const {
   validateInvite,
   joinViaInvite,
   forgotPassword,
+  validateResetToken,
   resetPassword,
 } = require('../controllers/authController');
 const { protect, adminOnly, requireGroup } = require('../middleware/auth');
@@ -36,13 +37,8 @@ router.post('/login',
 router.get('/me', protect, getMe);
 
 // ── Invite link ────────────────────────────────────────────────────────────
-// Admin generates invite link
 router.post('/invite', protect, requireGroup, adminOnly, generateInvite);
-
-// Anyone can check if token is valid (GET = just validate, no side effects)
 router.get('/join/:token', validateInvite);
-
-// Member self-registers via invite link
 router.post('/join/:token',
   [
     body('name').trim().notEmpty().withMessage('Name is required'),
@@ -52,8 +48,21 @@ router.post('/join/:token',
   validate, joinViaInvite,
 );
 
-// ── Password reset (email-based — stub until email is configured) ──────────
-router.post('/forgot-password', forgotPassword);
-router.post('/reset-password/:token', resetPassword);
+// ── Password reset ─────────────────────────────────────────────────────────
+router.post('/forgot-password',
+  [body('email').isEmail().withMessage('Valid email required')],
+  validate,
+  forgotPassword,
+);
+
+// GET: validate token before showing reset form
+router.get('/reset-password/:token', validateResetToken);
+
+// POST: actually reset the password
+router.post('/reset-password/:token',
+  [body('password').isLength({ min: 6 }).withMessage('Password min 6 chars')],
+  validate,
+  resetPassword,
+);
 
 module.exports = router;

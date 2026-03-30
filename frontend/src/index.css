@@ -394,11 +394,11 @@ button {
 .auth-card {
   position: relative;
   z-index: 1;
-  width: min(100%, 1120px);
+  width: min(100%, 1040px);
   display: grid;
-  grid-template-columns: minmax(360px, 1.05fr) minmax(360px, 0.95fr);
-  gap: 20px;
-  padding: 18px;
+  grid-template-columns: minmax(300px, 0.82fr) minmax(390px, 1fr);
+  gap: 16px;
+  padding: 16px;
   border-radius: 34px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(8, 14, 24, 0.76);
@@ -411,30 +411,43 @@ button {
 .auth-showcase {
   position: relative;
   overflow: hidden;
-  min-height: 640px;
-  padding: 32px;
+  min-height: 560px;
+  padding: 24px;
   border-radius: 28px;
   background:
-    radial-gradient(circle at top left, rgba(13, 141, 117, 0.2), transparent 34%),
-    radial-gradient(circle at bottom right, rgba(43, 104, 200, 0.16), transparent 32%),
-    linear-gradient(165deg, rgba(17, 31, 43, 0.98) 0%, rgba(11, 19, 31, 0.98) 100%);
+    radial-gradient(circle at 20% 18%, rgba(13, 141, 117, 0.22), transparent 26%),
+    radial-gradient(circle at 82% 84%, rgba(43, 104, 200, 0.18), transparent 28%),
+    linear-gradient(165deg, rgba(16, 28, 40, 0.98) 0%, rgba(10, 17, 28, 0.98) 100%);
   border: 1px solid rgba(255, 255, 255, 0.08);
   display: grid;
-  gap: 28px;
-  align-content: center;
-  justify-items: center;
+  place-items: center;
   animation: authRise 0.8s ease both;
 }
 
 .auth-showcase::before {
   content: "";
   position: absolute;
-  inset: auto -80px -90px auto;
-  width: 280px;
-  height: 280px;
+  inset: 24px;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 26px 26px;
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.auth-showcase::after {
+  content: "";
+  position: absolute;
+  right: -60px;
+  bottom: -60px;
+  width: 220px;
+  height: 220px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.12), transparent 60%);
-  opacity: 0.55;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.12), transparent 64%);
+  opacity: 0.4;
   pointer-events: none;
 }
 
@@ -446,19 +459,46 @@ button {
 .auth-showcase__logo-panel {
   position: relative;
   z-index: 1;
-  display: grid;
-  place-items: center;
-  width: min(100%, 360px);
-  min-height: 320px;
-  padding: 28px;
-  border-radius: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: min(100%, 380px);
+  aspect-ratio: 0.95 / 1;
+  padding: 32px 28px;
+  border-radius: 32px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03)),
-    linear-gradient(135deg, rgba(13, 141, 117, 0.12), rgba(43, 104, 200, 0.08));
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02)),
+    radial-gradient(circle at top left, rgba(13, 141, 117, 0.14), transparent 36%),
+    radial-gradient(circle at bottom right, rgba(43, 104, 200, 0.14), transparent 34%),
+    linear-gradient(180deg, rgba(22, 39, 53, 0.94), rgba(17, 28, 42, 0.94));
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 24px 44px rgba(4, 10, 22, 0.22);
+    0 28px 48px rgba(4, 10, 22, 0.24);
+}
+
+.auth-showcase__logo-panel::before {
+  content: "";
+  position: absolute;
+  inset: 22px;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  pointer-events: none;
+}
+
+.auth-showcase__logo-panel::after {
+  content: "";
+  position: absolute;
+  top: 18%;
+  left: 50%;
+  width: 150px;
+  height: 150px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.14), transparent 68%);
+  filter: blur(6px);
+  opacity: 0.5;
+  pointer-events: none;
 }
 
 .auth-showcase__brand {
@@ -471,7 +511,8 @@ button {
   flex-direction: column;
   justify-content: center;
   text-align: center;
-  gap: 18px;
+  gap: 16px;
+  max-width: 100%;
 }
 
 .auth-showcase__brand-mark {
@@ -491,10 +532,13 @@ button {
 }
 
 .auth-showcase__brand--solo .auth-showcase__brand-mark {
-  width: 96px;
-  height: 96px;
-  border-radius: 28px;
-  font-size: 2.4rem;
+  width: 88px;
+  height: 88px;
+  border-radius: 26px;
+  font-size: 2.1rem;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 20px 34px rgba(15, 46, 77, 0.28);
 }
 
 .auth-showcase__brand-name {
@@ -506,21 +550,21 @@ button {
 
 .auth-showcase__logo-copy {
   display: grid;
-  gap: 8px;
+  gap: 10px;
 }
 
 .auth-showcase__logo-wordmark {
   color: #ffffff;
   font-family: 'Syne', 'Plus Jakarta Sans', sans-serif !important;
-  font-size: clamp(2rem, 4vw, 3.2rem);
+  font-size: clamp(1.9rem, 3.2vw, 2.75rem);
   font-weight: 800;
-  letter-spacing: -0.04em;
-  line-height: 0.98;
+  letter-spacing: -0.03em;
+  line-height: 1;
 }
 
 .auth-showcase__logo-subtitle {
   color: rgba(255, 255, 255, 0.72);
-  font-size: 0.92rem;
+  font-size: 0.88rem;
   line-height: 1.6;
 }
 
@@ -964,8 +1008,10 @@ button {
 [data-theme="light"] .auth-showcase__logo-panel {
   border-color: rgba(255, 255, 255, 0.12);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.05)),
-    linear-gradient(135deg, rgba(15, 159, 132, 0.12), rgba(47, 118, 222, 0.08));
+    linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.05)),
+    radial-gradient(circle at top left, rgba(15, 159, 132, 0.12), transparent 36%),
+    radial-gradient(circle at bottom right, rgba(47, 118, 222, 0.12), transparent 34%),
+    linear-gradient(180deg, rgba(25, 48, 70, 0.96), rgba(18, 34, 52, 0.96));
 }
 
 [data-theme="light"] .auth-panel__surface {
@@ -1072,7 +1118,7 @@ button {
   }
 
   .auth-showcase__logo-panel {
-    min-height: 240px;
+    width: min(100%, 340px);
   }
 
   .auth-showcase__stats {
@@ -1112,28 +1158,20 @@ button {
 
   .auth-showcase__logo-panel {
     width: 100%;
+    aspect-ratio: auto;
     min-height: 220px;
     padding: 22px;
   }
 
   .auth-showcase__brand--solo .auth-showcase__brand-mark {
-    width: 78px;
-    height: 78px;
+    width: 74px;
+    height: 74px;
     border-radius: 24px;
-    font-size: 2rem;
+    font-size: 1.9rem;
   }
 
   .auth-showcase__logo-wordmark {
-    font-size: 2.2rem;
-  }
-
-  .auth-showcase__stats {
-    grid-template-columns: 1fr;
-  }
-
-  .auth-showcase__feature-card,
-  .auth-showcase__quote {
-    padding: 18px;
+    font-size: 2rem;
   }
 
   .auth-showcase__title {

@@ -19,16 +19,6 @@ const LoginPage = () => {
   const [form, setForm] = useState({ firstName: '', lastName: '', email: '', password: '' });
   const { login, register } = useAuth();
   const navigate = useNavigate();
-  const heroHighlights = [
-    'Split rent, utilities, and groceries without messy chats.',
-    'Track who paid, who owes, and what still needs settling.',
-    'Keep one clean shared ledger for your whole group.',
-  ];
-  const heroStats = [
-    { value: '24/7', label: 'Visible balances' },
-    { value: '3 taps', label: 'Add a payment' },
-    { value: 'Zero', label: 'Awkward confusion' },
-  ];
 
   const set = (key) => (event) => setForm((current) => ({ ...current, [key]: event.target.value }));
   const toggleMode = () => {
@@ -95,66 +85,14 @@ const LoginPage = () => {
 
       <div className="auth-card">
         <aside className="auth-showcase">
-          <div className="auth-showcase__brand-row">
-            <div className="auth-showcase__brand">
+          <div className="auth-showcase__logo-panel">
+            <div className="auth-showcase__brand auth-showcase__brand--solo">
               <div className="auth-showcase__brand-mark">K</div>
-              <div>
-                <div className="auth-showcase__brand-name">KhataNest</div>
-                <div className="auth-showcase__brand-copy">Shared expense management</div>
+              <div className="auth-showcase__logo-copy">
+                <div className="auth-showcase__logo-wordmark">KhataNest</div>
+                <div className="auth-showcase__logo-subtitle">Shared expense management</div>
               </div>
             </div>
-            <span className="auth-showcase__eyebrow">Calm money tracking for roommates</span>
-          </div>
-
-          <div className="auth-showcase__content">
-            <div className="auth-showcase__copy">
-              <h2 className="auth-showcase__title">A simpler way to manage shared money.</h2>
-              <p className="auth-showcase__text">
-                KhataNest keeps group expenses organized in one place, so everyone can see what was paid, what is due, and what comes next.
-              </p>
-            </div>
-
-            <div className="auth-showcase__stats">
-              {heroStats.map((item) => (
-                <div key={item.label} className="auth-showcase__stat">
-                  <strong className="auth-showcase__stat-value">{item.value}</strong>
-                  <span className="auth-showcase__stat-label">{item.label}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="auth-showcase__feature-card">
-              <div className="auth-showcase__feature-card-head">
-                <span className="auth-showcase__feature-pill">Live ledger</span>
-                <strong className="auth-showcase__feature-amount">Rs. 8,450</strong>
-              </div>
-              <div className="auth-showcase__feature-list">
-                {heroHighlights.map((item) => (
-                  <div key={item} className="auth-showcase__feature-item">
-                    <span className="auth-showcase__feature-dot" />
-                    <span>{item}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="auth-showcase__quote">
-              <div className="auth-showcase__quote-title">Why it feels better</div>
-              <p className="auth-showcase__quote-text">
-                One clean screen for dues, expenses, and payments instead of searching old messages and screenshots.
-              </p>
-            </div>
-          </div>
-
-          <div className="auth-showcase__footer">
-            <div className="auth-showcase__avatars">
-              <span className="auth-showcase__avatar">AT</span>
-              <span className="auth-showcase__avatar">MZ</span>
-              <span className="auth-showcase__avatar">HK</span>
-            </div>
-            <p className="auth-showcase__footer-copy">
-              Built for hostel rooms, flats, and small shared households.
-            </p>
           </div>
         </aside>
 

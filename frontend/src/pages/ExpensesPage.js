@@ -215,6 +215,63 @@ const ExpensesSelect = ({ value, onChange, options, placeholder, icon = 'user' }
   );
 };
 
+const ExpenseCategoryFilter = ({ value, onChange }) => {
+  const [open, setOpen] = useState(false);
+  const containerRef = React.useRef(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const handlePointer = (event) => {
+      if (!containerRef.current?.contains(event.target)) {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointer);
+    return () => document.removeEventListener('mousedown', handlePointer);
+  }, [open]);
+
+  const options = [
+    { value: 'all', label: 'All categories' },
+    ...CATEGORIES.map((item) => ({ value: item, label: getCategoryLabel(item) })),
+  ];
+
+  const selected = options.find((option) => option.value === value) || options[0];
+
+  return (
+    <div ref={containerRef} className={`expenses-filter-select ${open ? 'expenses-filter-select--open' : ''}`.trim()}>
+      <button
+        type="button"
+        className="expenses-filter-select__trigger"
+        onClick={() => setOpen((current) => !current)}
+        aria-expanded={open}
+      >
+        <span className="expenses-filter-select__value">{selected.label}</span>
+        <span className={`expenses-filter-select__chevron ${open ? 'expenses-filter-select__chevron--open' : ''}`.trim()} />
+      </button>
+
+      {open ? (
+        <div className="expenses-filter-select__menu">
+          {options.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              className={`expenses-filter-select__option ${option.value === value ? 'expenses-filter-select__option--active' : ''}`.trim()}
+              onClick={() => {
+                onChange(option.value);
+                setOpen(false);
+              }}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+};
+
 const NoGroup = () => (
   <div className="expenses-empty-state expenses-empty-state--simple">
     <h2 className="expenses-empty-state__title">No active group</h2>
@@ -560,18 +617,7 @@ const ExpensesPage = () => {
           onChange={(event) => setSearch(event.target.value)}
         />
 
-        <select
-          className="expenses-controls__select"
-          value={category}
-          onChange={(event) => setCategory(event.target.value)}
-        >
-          <option value="all">All categories</option>
-          {CATEGORIES.map((item) => (
-            <option key={item} value={item}>
-              {getCategoryLabel(item)}
-            </option>
-          ))}
-        </select>
+        <ExpenseCategoryFilter value={category} onChange={setCategory} />
 
         <div className="expenses-controls__count">{pagination.total} records</div>
       </section>

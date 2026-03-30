@@ -212,6 +212,7 @@ const Layout = ({ children }) => {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  const [isCompactMobile, setIsCompactMobile] = useState(window.innerWidth <= 480);
   const [profileOpen, setProfileOpen] = useState(false);
   const { user, logout, isAdmin, activeGroupId, activeGroup, myGroups } = useAuth();
   const location = useLocation();
@@ -219,8 +220,10 @@ const Layout = ({ children }) => {
 
   useEffect(() => {
     const handleResize = () => {
-      const mobile = window.innerWidth <= 768;
+      const width = window.innerWidth;
+      const mobile = width <= 768;
       setIsMobile(mobile);
+      setIsCompactMobile(width <= 480);
       if (mobile) {
         setCollapsed(false);
         setMobileMenuOpen(false);
@@ -445,13 +448,13 @@ const Layout = ({ children }) => {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
         <header
           style={{
-            height: 68,
+            height: isMobile ? 64 : 68,
             background: 'var(--surface-alt)',
             borderBottom: '1px solid var(--border)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            padding: isMobile ? '0 16px' : '0 24px',
+            padding: isCompactMobile ? '0 12px' : isMobile ? '0 16px' : '0 24px',
             flexShrink: 0,
             position: 'sticky',
             top: 0,
@@ -522,17 +525,54 @@ const Layout = ({ children }) => {
           </div>
         </header>
 
-        <main style={{ flex: 1, padding: isMobile ? 16 : 24, overflowY: 'auto', maxWidth: '100%' }} className="page-enter">
+        <main style={{ flex: 1, padding: isCompactMobile ? 12 : isMobile ? 16 : 24, overflowY: 'auto', maxWidth: '100%' }} className="page-enter">
+          {isMobile && activeGroupId && (
+            <div
+              style={{
+                marginBottom: 14,
+                padding: isCompactMobile ? '10px 12px' : '12px 14px',
+                borderRadius: 16,
+                border: '1px solid var(--border)',
+                background: 'linear-gradient(180deg, var(--surface-alt), var(--surface))',
+                display: 'grid',
+                gap: 10,
+                boxShadow: 'var(--shadow)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8 }}>
+                  Active Group
+                </div>
+                {user && (
+                  <div
+                    style={{
+                      padding: '6px 10px',
+                      borderRadius: 999,
+                      fontSize: 11,
+                      fontWeight: 800,
+                      background: balanceBg,
+                      color: balanceFg,
+                      border: `1px solid ${balanceBorder}`,
+                    }}
+                  >
+                    {(user.balance || 0) >= 0 ? '+' : ''}Rs. {(user.balance || 0).toLocaleString()}
+                  </div>
+                )}
+              </div>
+              <GroupSwitcher />
+            </div>
+          )}
+
           {!activeGroupId && location.pathname !== '/groups' && (
             <div
               style={{
                 marginBottom: 20,
-                padding: '14px 18px',
+                padding: isCompactMobile ? '12px 14px' : '14px 18px',
                 borderRadius: 18,
                 background: 'var(--banner-soft)',
                 border: '1px solid var(--accent-ring)',
                 display: 'flex',
-                alignItems: 'center',
+                alignItems: isMobile ? 'flex-start' : 'center',
                 gap: 10,
                 flexWrap: 'wrap',
                 boxShadow: 'var(--shadow)',
@@ -553,6 +593,8 @@ const Layout = ({ children }) => {
                   padding: '6px 12px',
                   borderRadius: 999,
                   border: '1px solid var(--accent-ring)',
+                  width: isCompactMobile ? '100%' : 'auto',
+                  textAlign: 'center',
                 }}
               >
                 Browse Groups →

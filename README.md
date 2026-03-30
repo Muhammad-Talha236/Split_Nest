@@ -1,211 +1,255 @@
-# 🏠 KhataNest — Hostel Expense Manager
+# KhataNest
 
-A full-stack web app for hostel friends to track shared expenses, payments, and balances automatically.
+KhataNest is a MERN stack app for managing shared group expenses, balances, and payments. It is built for hostel rooms, flats, and small groups that need a simple shared ledger with admin controls, member views, group joining, and transaction history.
 
----
+## Stack
 
-## 🚀 Tech Stack
+- Frontend: React, React Router, Axios, React Hot Toast, Recharts, date-fns
+- Backend: Node.js, Express, Mongoose, JWT, bcryptjs, Nodemailer, node-cron
+- Database: MongoDB
 
-| Layer | Technology |
-|-------|-----------|
-| Frontend | React.js (hooks, context API) |
-| Backend | Node.js + Express.js (MVC) |
-| Database | MongoDB + Mongoose |
-| Auth | JWT + bcrypt |
-| Styling | CSS Variables (dark/light) |
-| Charts | Recharts |
-| Jobs | node-cron (auto-clear descriptions) |
+## Main Features
 
----
+- Authentication with login, registration, forgot password, and reset password
+- Multi-group support with active group switching
+- Create groups and browse available groups
+- Join request flow for groups
+- Admin tools for approving requests, removing members, transferring admin, and monthly reset
+- Expense tracking with equal split and percentage split
+- Payment tracking and balance updates
+- Group-wise balances and transaction history
+- Dark and light theme support
+- Responsive frontend UI
+- Cron job to auto-clear old expense descriptions after 21 days
 
-## 📁 Project Structure
+## Project Structure
 
+```text
+Khatanest/
+|-- backend/
+|   |-- config/
+|   |-- controllers/
+|   |-- middleware/
+|   |-- models/
+|   |-- routes/
+|   |-- utils/
+|   |-- package.json
+|   `-- server.js
+|-- frontend/
+|   |-- public/
+|   |-- src/
+|   |   |-- components/
+|   |   |-- context/
+|   |   |-- pages/
+|   |   |-- services/
+|   |   |-- App.js
+|   |   `-- index.css
+|   `-- package.json
+`-- README.md
 ```
-khatanest/
-├── backend/
-│   ├── config/          # DB connection
-│   ├── controllers/     # Business logic
-│   ├── middleware/      # Auth, error, validate
-│   ├── models/          # Mongoose schemas
-│   ├── routes/          # API routes
-│   ├── server.js        # Entry point
-│   └── .env.example
-│
-└── frontend/
-    └── src/
-        ├── components/  # Reusable UI (Layout, Modal, etc.)
-        ├── context/     # AuthContext, ThemeContext
-        ├── pages/       # All page components
-        ├── services/    # Axios API calls
-        └── App.js
-```
 
----
+## Frontend Pages
 
-## ⚙️ Setup & Installation
+- `LoginPage`
+- `DashboardPage`
+- `GroupsPage`
+- `GroupRequestsPage`
+- `MyRequestsPage`
+- `MembersPage`
+- `ExpensesPage`
+- `PaymentsPage`
+- `BalancesPage`
+- `HistoryPage`
+- `JoinPage`
+- `ForgotPasswordPage`
+- `ResetPasswordPage`
+
+## Backend Models
+
+- `User`
+- `Group`
+- `Expense`
+- `Payment`
+- `JoinRequest`
+- `InviteToken`
+- `PasswordResetToken`
+
+## Local Setup
 
 ### Prerequisites
-- Node.js v18+
-- MongoDB (local or Atlas)
 
-### 1. Clone & Install
+- Node.js 18+
+- MongoDB local instance or MongoDB Atlas
+
+### 1. Install dependencies
 
 ```bash
-# Backend
 cd backend
 npm install
 
-# Frontend
 cd ../frontend
 npm install
 ```
 
-### 2. Configure Environment
+### 2. Create backend environment file
 
-```bash
-# backend/.env
+Create `backend/.env`:
+
+```env
 PORT=5000
-MONGODB_URI=mongodb://localhost:27017/khatanest
-JWT_SECRET=your_super_secret_key_here_min_32_chars
-JWT_EXPIRE=7d
 NODE_ENV=development
+MONGODB_URI=mongodb://127.0.0.1:27017/khatanest
+JWT_SECRET=replace_with_a_long_random_secret
+JWT_EXPIRE=7d
 CLIENT_URL=http://localhost:3000
 
-# frontend/.env
+EMAIL_HOST=smtp.example.com
+EMAIL_PORT=587
+EMAIL_USER=your_email_user
+EMAIL_PASS=your_email_password
+EMAIL_FROM=no-reply@example.com
+
+CRON_SCHEDULE=0 0 * * *
+```
+
+Notes:
+
+- `MONGODB_URI`, `JWT_SECRET`, and `JWT_EXPIRE` are required by the backend.
+- `CLIENT_URL` supports comma-separated origins if you need more than one frontend host.
+- Email variables are needed for forgot-password emails.
+
+### 3. Optional frontend environment file
+
+Create `frontend/.env` if you want to override the default API URL:
+
+```env
 REACT_APP_API_URL=http://localhost:5000/api
 ```
 
-### 3. Run Locally
+If this file is missing, the frontend already falls back to `http://localhost:5000/api`.
+
+## Run the App
+
+### Backend
 
 ```bash
-# Terminal 1 - Backend
 cd backend
 npm run dev
+```
 
-# Terminal 2 - Frontend
+### Frontend
+
+```bash
 cd frontend
 npm start
 ```
 
-App opens at: **http://localhost:3000**
+App URLs:
 
----
+- Frontend: `http://localhost:3000`
+- Backend API: `http://localhost:5000`
+- Health check: `http://localhost:5000/api/health`
 
-## 👤 Getting Started
+## Build the Frontend
 
-1. Register as **Admin** — creates your group automatically
-2. Go to **Members** → Add group members (creates their login accounts)
-3. Go to **Expenses** → Add shared expenses (auto-splits and updates balances)
-4. Go to **Payments** → Record when members pay you back
-5. **Dashboard** shows live stats, charts, and settlement suggestions
+```bash
+cd frontend
+npm run build
+```
 
----
+## Backend Scripts
 
-## 🔑 API Endpoints
+```bash
+npm run dev
+npm start
+```
+
+## Frontend Scripts
+
+```bash
+npm start
+npm run build
+```
+
+## API Overview
 
 ### Auth
-```
-POST   /api/auth/register     Register admin + create group
-POST   /api/auth/login        Login
-GET    /api/auth/me           Get current user
-```
 
-### Group
-```
-GET    /api/group             Get group details + members
-PUT    /api/group             Update group name
-POST   /api/group/members     Add member (Admin)
-DELETE /api/group/members/:id Remove member (Admin)
-POST   /api/group/reset       Monthly balance reset (Admin)
-```
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `GET /api/auth/me`
+- `PUT /api/auth/switch-group`
+- `POST /api/auth/forgot-password`
+- `GET /api/auth/reset-password/:token`
+- `POST /api/auth/reset-password/:token`
 
-### Expenses
-```
-GET    /api/expenses          List expenses (with search/filter/pagination)
-POST   /api/expenses          Add expense (Admin)
-PUT    /api/expenses/:id      Edit expense (Admin)
-DELETE /api/expenses/:id      Delete expense (Admin)
-GET    /api/expenses/stats    Dashboard stats
-```
+### Groups
 
-### Payments
-```
-GET    /api/payments          List payments (paginated)
-POST   /api/payments          Record payment (Admin)
-DELETE /api/payments/:id      Reverse payment (Admin)
-```
+- `GET /api/groups`
+- `GET /api/groups/my`
+- `GET /api/groups/requests/my`
+- `POST /api/groups`
+- `GET /api/groups/:id`
+- `PUT /api/groups/:id`
+- `DELETE /api/groups/:id`
+- `POST /api/groups/:id/request`
+- `GET /api/groups/:id/requests`
+- `PUT /api/groups/:id/requests/:reqId`
+- `POST /api/groups/:id/leave`
+- `PUT /api/groups/:id/transfer-admin`
+- `DELETE /api/groups/:id/members/:memberId`
+- `POST /api/groups/:id/reset`
 
-### Balances
-```
-GET    /api/balances          All balances + settlement plan
-GET    /api/balances/history  Combined transaction history
-```
+### Group Expenses
 
----
+- `GET /api/groups/:groupId/expenses`
+- `GET /api/groups/:groupId/expenses/stats`
+- `POST /api/groups/:groupId/expenses`
+- `PUT /api/groups/:groupId/expenses/:id`
+- `DELETE /api/groups/:groupId/expenses/:id`
 
-## 💡 Key Business Logic
+### Group Payments
 
-### Expense Balance Update
-```
-Admin adds Rs. 1000 expense, split among 4 members:
-- Each member: balance -= 250  (they owe 250)
-- Admin: balance += 750        (1000 - own 250 share)
-```
+- `GET /api/groups/:groupId/payments`
+- `POST /api/groups/:groupId/payments`
+- `DELETE /api/groups/:groupId/payments/:id`
 
-### Payment Balance Update
-```
-Member pays Rs. 300:
-- Member: balance += 300  (debt reduces)
-- Admin: balance -= 300   (received cash)
-```
+### Group Balances
 
-### 21-Day Description Auto-Clear
-A cron job runs daily at midnight. Any expense older than 21 days has its
-`description` field cleared (but title, amount, and transaction remain).
+- `GET /api/groups/:groupId/balances`
+- `GET /api/groups/:groupId/balances/history`
 
----
+## Business Logic Notes
 
-## 🌐 Deployment
+- Expenses update balances based on selected members and split mode.
+- Percentage split is supported in addition to equal split.
+- Payments reduce outstanding balances and are recorded in group history.
+- The backend runs a scheduled job that clears expense descriptions after 21 days while keeping the transaction itself.
 
-### Backend → Render.com
-1. Push to GitHub
-2. New Web Service → Connect repo
-3. Build: `npm install`, Start: `node server.js`
-4. Add environment variables
+## Deployment Notes
 
-### Frontend → Vercel
-1. Push to GitHub
-2. Import project on Vercel
-3. Set `REACT_APP_API_URL=https://your-backend.onrender.com/api`
-4. Deploy
+You can deploy the backend and frontend separately.
 
----
+- Backend: Render, Railway, VPS, or any Node host
+- Frontend: Vercel, Netlify, or any static hosting provider
 
-## 🧪 Sample Test Data
+Make sure production environment variables are configured for:
 
-After setup, register admin and run this in MongoDB shell or create via UI:
+- MongoDB connection
+- JWT secret
+- frontend/backend URLs
+- email provider credentials
 
-```
-Admin: admin@hostel.com / admin123
-Members: bilal@hostel.com, hamza@hostel.com, sara@hostel.com
-```
+## Current Status
 
----
+This repository already includes:
 
-## 🎯 Features Summary
+- modern login/register flow
+- group discovery and request handling
+- grouped expenses and payments
+- balances and history pages
+- responsive UI redesign work in progress
 
-- ✅ JWT Authentication (Admin + Member roles)
-- ✅ Auto-balance calculation on every expense
-- ✅ Payment tracking with balance reversal
-- ✅ Settlement suggestion algorithm
-- ✅ 21-day description auto-clear (cron job)
-- ✅ Weekly expense chart (Recharts)
-- ✅ Category breakdown
-- ✅ PDF export & print
-- ✅ Monthly reset
-- ✅ Confirmation modals before delete
-- ✅ Toast notifications
-- ✅ Pagination everywhere
-- ✅ Dark/Light theme toggle
-- ✅ Mobile responsive
-- ✅ Role-based route protection
+## License
+
+This project is currently private/internal unless you choose to add a license.

@@ -1,128 +1,86 @@
-// pages/JoinPage.js - Member self-registration via invite link
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { useTheme } from '../context/ThemeContext';
+import React, { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import ThemeToggleButton from '../components/ThemeToggleButton';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 const JoinPage = () => {
-  const { token }          = useParams();
-  const navigate           = useNavigate();
-  const { login: authLogin } = useAuth();
-  const { isDark, toggleTheme } = useTheme();
+  const { token } = useParams();
+  const navigate = useNavigate();
 
-  const [status, setStatus]   = useState('loading'); // loading | valid | invalid | used | success
+  const [status, setStatus] = useState('loading');
   const [groupInfo, setGroupInfo] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [form, setForm]       = useState({ name: '', email: '', password: '', confirmPassword: '' });
   const [showPass, setShowPass] = useState(false);
+  const [form, setForm] = useState({ name: '', email: '', password: '', confirmPassword: '' });
 
-  // Validate token on mount
   useEffect(() => {
     const validate = async () => {
       try {
-        const res = await axios.get(`${API_URL}/auth/join/${token}`);
-        setGroupInfo(res.data);
+        const response = await axios.get(`${API_URL}/auth/join/${token}`);
+        setGroupInfo(response.data);
         setStatus('valid');
-      } catch (err) {
-        const msg = err.response?.data?.message || '';
-        if (msg.includes('already been used')) setStatus('used');
-        else setStatus('invalid');
+      } catch (error) {
+        const message = error.response?.data?.message || '';
+        setStatus(message.includes('already been used') ? 'used' : 'invalid');
       }
     };
+
     validate();
   }, [token]);
 
-  const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
+  const set = (key) => (event) => setForm((current) => ({ ...current, [key]: event.target.value }));
 
   const handleSubmit = async () => {
-    if (!form.name || !form.email || !form.password) {
-      return toast.error('Please fill all fields');
-    }
-    if (form.password.length < 6) {
-      return toast.error('Password must be at least 6 characters');
-    }
-    if (form.password !== form.confirmPassword) {
-      return toast.error('Passwords do not match');
-    }
+    if (!form.name || !form.email || !form.password) return toast.error('Please fill all fields');
+    if (form.password.length < 6) return toast.error('Password must be at least 6 characters');
+    if (form.password !== form.confirmPassword) return toast.error('Passwords do not match');
 
     setLoading(true);
     try {
-      const res = await axios.post(`${API_URL}/auth/join/${token}`, {
-        name    : form.name,
-        email   : form.email,
+      const response = await axios.post(`${API_URL}/auth/join/${token}`, {
+        name: form.name,
+        email: form.email,
         password: form.password,
       });
 
-      // Auto-login
-      const { token: jwt, user } = res.data;
+      const { token: jwt, user } = response.data;
       localStorage.setItem('khatanest_token', jwt);
       localStorage.setItem('khatanest_user', JSON.stringify(user));
-      window.location.href = '/dashboard'; // hard reload to init auth context
-
-    } catch (err) {
-      const msg = err.response?.data?.message || 'Registration failed';
-      if (msg.includes('already been used')) setStatus('used');
-      else toast.error(msg);
+      window.location.href = '/dashboard';
+    } catch (error) {
+      const message = error.response?.data?.message || 'Registration failed';
+      if (message.includes('already been used')) setStatus('used');
+      else toast.error(message);
     } finally {
       setLoading(false);
     }
   };
 
-  // ── Loading ──────────────────────────────────────────────────────────────
   if (status === 'loading') {
     return (
-      <div style={{
-        minHeight: '100vh', background: 'var(--bg)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}>
-        <div style={{
-          width: 40, height: 40, border: '3px solid var(--border)',
-          borderTopColor: 'var(--accent)', borderRadius: '50%',
-          animation: 'spin 0.7s linear infinite',
-        }} />
-        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+      <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: 40, height: 40, border: '3px solid var(--border)', borderTopColor: 'var(--accent)', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
       </div>
     );
   }
 
-  // ── Invalid / Expired ────────────────────────────────────────────────────
   if (status === 'invalid' || status === 'used') {
     return (
-      <div style={{
-        minHeight: '100vh', background: 'var(--bg)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
-      }}>
-        <div style={{
-          maxWidth: 420, width: '100%', textAlign: 'center',
-          background: 'var(--surface-alt)', border: '1px solid var(--border)',
-          borderRadius: 20, padding: 40,
-        }}>
-          <div style={{ fontSize: 56, marginBottom: 16 }}>
-            {status === 'used' ? '🔒' : '⛔'}
-          </div>
-          <h2 style={{
-            fontFamily: "'Syne', sans-serif", fontWeight: 900,
-            fontSize: 24, color: 'var(--text)', marginBottom: 12,
-          }}>
+      <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+        <div style={{ maxWidth: 420, width: '100%', textAlign: 'center', background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 24, padding: 40, boxShadow: 'var(--shadow)' }}>
+          <div style={{ fontSize: 18, color: 'var(--accent)', fontWeight: 900, marginBottom: 16 }}>{status === 'used' ? 'USED' : 'INVALID'}</div>
+          <h2 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 900, fontSize: 24, color: 'var(--text)', marginBottom: 12 }}>
             {status === 'used' ? 'Link Already Used' : 'Invalid Link'}
           </h2>
           <p style={{ color: 'var(--text-muted)', fontSize: 14, lineHeight: 1.6, marginBottom: 28 }}>
             {status === 'used'
               ? 'This invite link has already been used to create an account. Each link works only once.'
-              : 'This invite link is invalid or has expired. Please ask your group admin to generate a new one.'}
+              : 'This invite link is invalid or expired. Please ask your group admin to generate a new one.'}
           </p>
-          <button
-            onClick={() => navigate('/login')}
-            style={{
-              padding: '11px 28px', borderRadius: 10, border: 'none',
-              background: 'linear-gradient(135deg, #2ECC9A, #1A7A5C)',
-              color: '#000', fontWeight: 800, fontSize: 14, cursor: 'pointer',
-            }}
-          >
+          <button type="button" onClick={() => navigate('/login')} style={{ padding: '11px 28px', borderRadius: 14, border: 'none', background: 'var(--button-primary-gradient)', color: 'var(--button-primary-text)', fontWeight: 800, fontSize: 14, boxShadow: 'var(--shadow)' }}>
             Go to Login
           </button>
         </div>
@@ -130,175 +88,74 @@ const JoinPage = () => {
     );
   }
 
-  // ── Valid — Show Registration Form ───────────────────────────────────────
   return (
-    <div style={{
-      minHeight: '100vh', background: 'var(--bg)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
-      backgroundImage: 'radial-gradient(ellipse 70% 50% at 50% -5%, var(--accent-soft), transparent)',
-    }}>
-      {/* Theme toggle */}
-      <button onClick={toggleTheme} style={{
-        position: 'fixed', top: 20, right: 20,
-        display: 'flex', alignItems: 'center', gap: 6,
-        padding: '7px 14px', borderRadius: 10,
-        border: '1px solid var(--border)', background: 'var(--surface)',
-        color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-      }}>
-        <span>{isDark ? '☀️' : '🌙'}</span>
-        <span>{isDark ? 'Light' : 'Dark'}</span>
-      </button>
+    <div
+      style={{
+        minHeight: '100vh',
+        background: 'var(--bg)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 16,
+        backgroundImage: 'radial-gradient(ellipse 70% 50% at 50% -5%, var(--accent-soft), transparent)',
+      }}
+    >
+      <ThemeToggleButton style={{ position: 'fixed', top: 20, right: 20 }} />
 
       <div style={{ width: '100%', maxWidth: 440 }}>
-        {/* Logo + Group Info */}
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <div style={{
-            width: 68, height: 68, borderRadius: 20, margin: '0 auto 14px',
-            background: 'linear-gradient(135deg, #2ECC9A, #1A7A5C)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 34, fontWeight: 900, color: '#000',
-            boxShadow: '0 0 50px rgba(46,204,154,0.3)',
-          }}>K</div>
-          <h1 style={{
-            fontFamily: "'Syne', sans-serif", fontWeight: 900,
-            fontSize: 30, color: 'var(--text)', margin: 0, letterSpacing: -1,
-          }}>
+          <div style={{ width: 68, height: 68, borderRadius: 20, margin: '0 auto 14px', background: 'linear-gradient(135deg, #2ECC9A, #1A7A5C)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 34, fontWeight: 900, color: '#000', boxShadow: '0 0 50px rgba(46,204,154,0.3)' }}>
+            K
+          </div>
+          <h1 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 900, fontSize: 30, color: 'var(--text)', margin: 0, letterSpacing: -1 }}>
             Join KhataNest
           </h1>
 
-          {/* Group info banner */}
-          <div style={{
-            marginTop: 16, padding: '12px 20px', borderRadius: 12,
-            background: 'var(--accent-soft)', border: '1px solid var(--accent-glow)',
-            display: 'inline-block',
-          }}>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 2 }}>
-              You're joining
-            </div>
-            <div style={{
-              fontFamily: "'Syne', sans-serif", fontWeight: 800,
-              fontSize: 17, color: 'var(--accent)',
-            }}>
-              {groupInfo?.groupName}
-            </div>
-            {groupInfo?.invitedBy && (
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                Invited by {groupInfo.invitedBy}
-              </div>
-            )}
+          <div style={{ marginTop: 16, padding: '12px 20px', borderRadius: 16, background: 'var(--accent-soft)', border: '1px solid var(--accent-glow)', display: 'inline-block', boxShadow: 'var(--shadow)' }}>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 2 }}>You&apos;re joining</div>
+            <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 17, color: 'var(--accent)' }}>{groupInfo?.groupName}</div>
+            {groupInfo?.invitedBy && <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>Invited by {groupInfo.invitedBy}</div>}
           </div>
         </div>
 
-        {/* Form Card */}
-        <div style={{
-          background: 'var(--surface-alt)', border: '1px solid var(--border)',
-          borderRadius: 20, padding: 28,
-        }}>
-          <h3 style={{
-            fontFamily: "'Syne', sans-serif", fontWeight: 800,
-            color: 'var(--text)', fontSize: 18, margin: '0 0 20px',
-          }}>
+        <div style={{ background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 24, padding: 28, boxShadow: 'var(--shadow)' }}>
+          <h3 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, color: 'var(--text)', fontSize: 18, margin: '0 0 20px' }}>
             Create Your Account
           </h3>
 
-          {/* Name */}
           <div style={{ marginBottom: 14 }}>
-            <label style={{ display: 'block', marginBottom: 6, fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8 }}>
-              Full Name *
-            </label>
-            <input
-              value={form.name}
-              onChange={set('name')}
-              placeholder="Ali Khan"
-              style={{ width: '100%' }}
-            />
+            <label style={{ display: 'block', marginBottom: 6, fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8 }}>Full Name *</label>
+            <input value={form.name} onChange={set('name')} placeholder="Ali Khan" />
           </div>
 
-          {/* Email */}
           <div style={{ marginBottom: 14 }}>
-            <label style={{ display: 'block', marginBottom: 6, fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8 }}>
-              Email Address *
-            </label>
-            <input
-              type="email"
-              value={form.email}
-              onChange={set('email')}
-              placeholder="ali@example.com"
-              style={{ width: '100%' }}
-            />
+            <label style={{ display: 'block', marginBottom: 6, fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8 }}>Email Address *</label>
+            <input type="email" value={form.email} onChange={set('email')} placeholder="ali@example.com" />
           </div>
 
-          {/* Password */}
           <div style={{ marginBottom: 14 }}>
-            <label style={{ display: 'block', marginBottom: 6, fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8 }}>
-              Password *
-            </label>
+            <label style={{ display: 'block', marginBottom: 6, fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8 }}>Password *</label>
             <div style={{ position: 'relative' }}>
-              <input
-                type={showPass ? 'text' : 'password'}
-                value={form.password}
-                onChange={set('password')}
-                placeholder="Min 6 characters"
-                style={{ width: '100%', paddingRight: 44 }}
-              />
-              <button
-                onClick={() => setShowPass(s => !s)}
-                style={{
-                  position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
-                  background: 'none', border: 'none', color: 'var(--text-muted)',
-                  cursor: 'pointer', fontSize: 16, padding: 0,
-                }}
-              >
-                {showPass ? '🙈' : '👁️'}
+              <input type={showPass ? 'text' : 'password'} value={form.password} onChange={set('password')} placeholder="Min 6 characters" style={{ width: '100%', paddingRight: 54 }} />
+              <button type="button" onClick={() => setShowPass((current) => !current)} aria-label={showPass ? 'Hide password' : 'Show password'} title={showPass ? 'Hide password' : 'Show password'} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--accent)', fontWeight: 700, fontSize: 12, padding: 0 }}>
+                {showPass ? '🙈' : '🙉'}
               </button>
             </div>
           </div>
 
-          {/* Confirm Password */}
           <div style={{ marginBottom: 22 }}>
-            <label style={{ display: 'block', marginBottom: 6, fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8 }}>
-              Confirm Password *
-            </label>
-            <input
-              type={showPass ? 'text' : 'password'}
-              value={form.confirmPassword}
-              onChange={set('confirmPassword')}
-              placeholder="Re-enter password"
-              style={{
-                width: '100%',
-                borderColor: form.confirmPassword && form.password !== form.confirmPassword
-                  ? 'var(--red)' : undefined,
-              }}
-            />
-            {form.confirmPassword && form.password !== form.confirmPassword && (
-              <div style={{ marginTop: 4, fontSize: 12, color: 'var(--red)' }}>
-                Passwords do not match
-              </div>
-            )}
+            <label style={{ display: 'block', marginBottom: 6, fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8 }}>Confirm Password *</label>
+            <input type={showPass ? 'text' : 'password'} value={form.confirmPassword} onChange={set('confirmPassword')} placeholder="Re-enter password" style={{ width: '100%', borderColor: form.confirmPassword && form.password !== form.confirmPassword ? 'var(--accent)' : undefined }} />
+            {form.confirmPassword && form.password !== form.confirmPassword && <div style={{ marginTop: 4, fontSize: 12, color: 'var(--accent)' }}>Passwords do not match</div>}
           </div>
 
-          {/* Submit */}
-          <button
-            onClick={handleSubmit}
-            disabled={loading}
-            style={{
-              width: '100%', padding: '13px', borderRadius: 12, border: 'none',
-              background: 'linear-gradient(135deg, #2ECC9A, #1A7A5C)',
-              color: '#000', fontWeight: 800, fontSize: 15,
-              cursor: loading ? 'not-allowed' : 'pointer',
-              opacity: loading ? 0.7 : 1,
-              boxShadow: '0 4px 20px rgba(46,204,154,0.3)',
-            }}
-          >
+          <button type="button" onClick={handleSubmit} disabled={loading} style={{ width: '100%', padding: '13px', borderRadius: 14, border: 'none', background: 'var(--button-primary-gradient)', color: 'var(--button-primary-text)', fontWeight: 800, fontSize: 15, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1, boxShadow: 'var(--shadow)' }}>
             {loading ? 'Creating Account...' : 'Join Group & Create Account'}
           </button>
 
           <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 12, marginTop: 16 }}>
             Already have an account?{' '}
-            <span
-              onClick={() => navigate('/login')}
-              style={{ color: 'var(--accent)', fontWeight: 700, cursor: 'pointer' }}
-            >
+            <span onClick={() => navigate('/login')} style={{ color: 'var(--accent)', fontWeight: 800, cursor: 'pointer' }}>
               Login here
             </span>
           </p>

@@ -1,44 +1,222 @@
-// components/Layout.js - Main app shell with responsive sidebar
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useTheme } from '../context/ThemeContext';
+import GroupSwitcher from './GroupSwitcher';
+import ThemeToggleButton from './ThemeToggleButton';
+import Modal from './Modal';
 import toast from 'react-hot-toast';
+import { alpha } from '../theme';
 
 const NAV_ITEMS = [
-  { path: '/dashboard', icon: '◈', label: 'Dashboard' },
-  { path: '/expenses', icon: '🧾', label: 'Expenses' },
-  { path: '/payments', icon: '💵', label: 'Payments' },
-  { path: '/members', icon: '👥', label: 'Members' },
-  { path: '/balances', icon: '⚖️', label: 'Balances' },
-  { path: '/history', icon: '📜', label: 'History' },
+  { path: '/dashboard',      icon: '◈', label: 'Dashboard' },
+  { path: '/groups',         icon: '🏘️', label: 'Groups' },
+  { path: '/expenses',       icon: '🧾', label: 'Expenses' },
+  { path: '/payments',       icon: '💵', label: 'Payments' },
+  { path: '/balances',       icon: '⚖️', label: 'Balances' },
+  { path: '/history',        icon: '📜', label: 'History' },
+  { path: '/members',        icon: '👥', label: 'Members', adminOnly: true },
+  { path: '/group-requests', icon: '✉️', label: 'Requests', adminOnly: true },
+  { path: '/my-requests',    icon: '📩', label: 'My Requests', memberOnly: true },
 ];
 
-const Avatar = ({ name, size = 36, color = '#2ECC9A' }) => {
-  const initials = name?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || '?';
+export const Avatar = ({ name, size = 36, color = 'var(--accent)' }) => {
+  const initials = name?.split(' ').map((word) => word[0]).join('').slice(0, 2).toUpperCase() || '?';
+  const outerRadius = Math.max(12, Math.round(size * 0.34));
+  const inset = Math.max(2, Math.round(size * 0.08));
+  const innerRadius = Math.max(10, outerRadius - inset);
+  const accentDot = Math.max(4, Math.round(size * 0.14));
+
   return (
-    <div style={{
-      width: size, height: size, borderRadius: size,
-      background: `${color}22`, border: `2px solid ${color}44`,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontSize: size * 0.36, fontWeight: 800, color, flexShrink: 0,
-      fontFamily: "'Syne', sans-serif",
-    }}>{initials}</div>
+    <div
+      style={{
+        width: size,
+        height: size,
+        borderRadius: outerRadius,
+        padding: inset,
+        background: `linear-gradient(145deg, ${alpha(color, 36)}, ${alpha(color, 10)})`,
+        border: `1px solid ${alpha(color, 34)}`,
+        boxShadow: `0 12px 28px ${alpha(color, 18)}`,
+        position: 'relative',
+        overflow: 'hidden',
+        flexShrink: 0,
+      }}
+    >
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          borderRadius: innerRadius,
+          background: `radial-gradient(circle at 22% 18%, ${alpha(color, 18)}, transparent 44%), linear-gradient(160deg, var(--surface-elevated), var(--surface))`,
+          border: `1px solid ${alpha(color, 22)}`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          position: 'relative',
+          overflow: 'hidden',
+        }}
+      >
+        <span
+          style={{
+            fontSize: size * 0.31,
+            fontWeight: 900,
+            color,
+            letterSpacing: '-0.08em',
+            lineHeight: 1,
+            fontFamily: "'JetBrains Mono', monospace",
+            textTransform: 'uppercase',
+            textShadow: `0 0 18px ${alpha(color, 18)}`,
+            transform: 'translateX(-0.02em)',
+          }}
+        >
+          {initials}
+        </span>
+
+        <span
+          style={{
+            position: 'absolute',
+            top: inset + 1,
+            right: inset + 1,
+            width: accentDot,
+            height: accentDot,
+            borderRadius: 999,
+            background: color,
+            boxShadow: `0 0 0 ${Math.max(3, Math.round(size * 0.06))}px ${alpha(color, 12)}, 0 0 12px ${alpha(color, 28)}`,
+          }}
+        />
+      </div>
+    </div>
   );
 };
 
-export { Avatar };
+const BrandMark = ({ small = false }) => (
+  <div
+    style={{
+      width: small ? 32 : 36,
+      height: small ? 32 : 36,
+      borderRadius: small ? 10 : 12,
+      background: 'linear-gradient(135deg, #2ECC9A, #1A7A5C)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontSize: small ? 16 : 18,
+      fontWeight: 900,
+      color: '#000',
+      boxShadow: 'var(--shadow)',
+      flexShrink: 0,
+    }}
+  >
+    K
+  </div>
+);
+
+const NavItem = ({ item, active, collapsed = false, onClick }) => (
+  <Link to={item.path} onClick={onClick} style={{ textDecoration: 'none' }}>
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        padding: collapsed ? '11px 14px' : '11px 14px',
+        borderRadius: 10,
+        marginBottom: 3,
+        cursor: 'pointer',
+        background: active ? 'var(--accent-soft)' : 'transparent',
+        color: active ? 'var(--accent)' : 'var(--text-muted)',
+        borderLeft: `3px solid ${active ? 'var(--accent)' : 'transparent'}`,
+        fontWeight: active ? 700 : 500,
+        fontSize: 14,
+        whiteSpace: 'nowrap',
+        transition: 'transform .18s ease, background-color .18s ease, border-color .18s ease, color .18s ease',
+      }}
+    >
+      <span
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: 17,
+          flexShrink: 0,
+        }}
+      >
+        {item.icon}
+      </span>
+      {!collapsed && <span>{item.label}</span>}
+    </div>
+  </Link>
+);
+
+const InfoTile = ({ label, value, tone = 'default' }) => {
+  return (
+    <div className={`profile-tile profile-tile--${tone}`}>
+      <div className="profile-tile__label">{label}</div>
+      <div className="profile-tile__value">{value}</div>
+    </div>
+  );
+};
+
+const UserProfileModal = ({ isOpen, onClose, user, activeGroupName, groupCount }) => {
+  if (!user) return null;
+
+  const shareRemaining = Math.max(0, (user.adminShareOwed || 0) - (user.adminSharePaid || 0));
+  const balanceTone = (user.balance || 0) >= 0 ? 'positive' : 'danger';
+  const shareTone = shareRemaining > 0 ? 'danger' : 'positive';
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="My Profile" maxWidth={560} className="profile-modal">
+      <div className="profile-modal__hero">
+        <div className="profile-modal__identity">
+          <Avatar name={user.name} size={64} />
+          <div className="profile-modal__copy">
+            <div className="profile-modal__name">{user.name}</div>
+            <div className="profile-modal__email">{user.email || 'No email available'}</div>
+            <div className={`profile-modal__role profile-modal__role--${user.role === 'admin' ? 'admin' : 'member'}`}>
+              {user.role || 'member'}
+            </div>
+          </div>
+        </div>
+        <div className={`profile-modal__balance profile-modal__balance--${balanceTone}`}>
+          <div className="profile-modal__balance-label">Current Balance</div>
+          <div className="profile-modal__balance-value">Rs. {(user.balance || 0).toLocaleString()}</div>
+        </div>
+      </div>
+
+      <div className="profile-modal__tiles">
+        <InfoTile label="Active Group" value={activeGroupName || 'No active group'} tone="info" />
+        <InfoTile label="Groups Joined" value={String(groupCount || 0)} />
+        <InfoTile label="Current Balance" value={`Rs. ${(user.balance || 0).toLocaleString()}`} tone={balanceTone} />
+        <InfoTile label="My Share Remaining" value={`Rs. ${shareRemaining.toLocaleString()}`} tone={shareTone} />
+      </div>
+
+      <div className="profile-modal__summary">
+        <div className="profile-modal__summary-label">
+          Payment Summary
+        </div>
+        <div className="profile-modal__summary-grid">
+          <div className="profile-modal__summary-item">
+            <div className="profile-modal__summary-item-label">Share Owed</div>
+            <div className="profile-modal__summary-item-value">Rs. {(user.adminShareOwed || 0).toLocaleString()}</div>
+          </div>
+          <div className="profile-modal__summary-item">
+            <div className="profile-modal__summary-item-label">Share Paid</div>
+            <div className="profile-modal__summary-item-value profile-modal__summary-item-value--accent">
+              Rs. {(user.adminSharePaid || 0).toLocaleString()}
+            </div>
+          </div>
+        </div>
+      </div>
+    </Modal>
+  );
+};
 
 const Layout = ({ children }) => {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
-  const { user, logout, isAdmin } = useAuth();
-  const { isDark, toggleTheme } = useTheme();
+  const [profileOpen, setProfileOpen] = useState(false);
+  const { user, logout, isAdmin, activeGroupId, activeGroup, myGroups } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Handle window resize
   useEffect(() => {
     const handleResize = () => {
       const mobile = window.innerWidth <= 768;
@@ -48,14 +226,14 @@ const Layout = ({ children }) => {
         setMobileMenuOpen(false);
       }
     };
+
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Close mobile menu when route changes
   useEffect(() => {
     setMobileMenuOpen(false);
-  }, [location]);
+  }, [location.pathname]);
 
   const handleLogout = () => {
     logout();
@@ -63,235 +241,335 @@ const Layout = ({ children }) => {
     navigate('/login');
   };
 
-  const currentPage = NAV_ITEMS.find(n => location.pathname === n.path)?.label || 'KhataNest';
+  const visibleNav = NAV_ITEMS.filter((item) => {
+    if (item.adminOnly && !isAdmin) return false;
+    if (item.memberOnly && isAdmin) return false;
+    return true;
+  });
 
-  // Mobile sidebar overlay
+  const currentPage = visibleNav.find((item) => location.pathname === item.path)?.label || 'KhataNest';
+
+  const topBalancePositive = (user?.balance || 0) >= 0;
+  const balanceBg = topBalancePositive ? 'var(--accent-soft)' : 'var(--red-soft)';
+  const balanceFg = topBalancePositive ? 'var(--accent)' : 'var(--red)';
+  const balanceBorder = topBalancePositive ? 'var(--accent-glow)' : 'rgba(255,92,106,0.3)';
+  const activeGroupName = activeGroup?.groupId?.name || activeGroup?.name || 'No active group';
+
   if (isMobile && mobileMenuOpen) {
     return (
       <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
-        {/* Mobile Header */}
-        <header style={{
-          height: 60, background: 'var(--surface)', borderBottom: '1px solid var(--border)',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '0 16px', position: 'sticky', top: 0, zIndex: 50,
-        }}>
-          <button onClick={() => setMobileMenuOpen(false)} style={{
-            background: 'none', border: 'none', color: 'var(--text-muted)',
-            fontSize: 24, cursor: 'pointer', padding: '8px',
-          }}>✕</button>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{
-              width: 32, height: 32, borderRadius: 8,
-              background: 'linear-gradient(135deg, #2ECC9A, #1A7A5C)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 16, fontWeight: 900, color: '#000'
-            }}>K</div>
+        <header
+          style={{
+            height: 64,
+            background: 'var(--surface-alt)',
+            borderBottom: '1px solid var(--border)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '0 16px',
+            position: 'sticky',
+            top: 0,
+            zIndex: 60,
+            boxShadow: 'var(--shadow)',
+          }}
+        >
+          <button onClick={() => setMobileMenuOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 22 }}>
+            x
+          </button>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <BrandMark small />
             <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 900, color: 'var(--text)' }}>KhataNest</span>
           </div>
-          <div style={{ width: 40 }} />
+
+          <ThemeToggleButton compact />
         </header>
 
-        {/* Mobile Navigation */}
-        <nav style={{ padding: '16px' }}>
-          {NAV_ITEMS.filter(n => n.path !== '/members' || isAdmin).map(item => {
-            const active = location.pathname === item.path;
-            return (
-              <Link key={item.path} to={item.path} style={{ textDecoration: 'none' }}>
-                <div style={{
-                  display: 'flex', alignItems: 'center', gap: 12,
-                  padding: '14px 16px', borderRadius: 10, marginBottom: 4,
-                  background: active ? 'var(--accent-soft)' : 'transparent',
-                  color: active ? 'var(--accent)' : 'var(--text-muted)',
-                  fontWeight: active ? 700 : 500, fontSize: 16,
-                }}>
-                  <span style={{ fontSize: 20 }}>{item.icon}</span>
-                  <span>{item.label}</span>
-                </div>
-              </Link>
-            );
-          })}
+        <nav style={{ padding: 16 }}>
+          {visibleNav.map((item) => (
+            <NavItem key={item.path} item={item} active={location.pathname === item.path} onClick={() => setMobileMenuOpen(false)} />
+          ))}
         </nav>
 
-        {/* Mobile User Info */}
         {user && (
-          <div style={{ position: 'fixed', bottom: 20, left: 16, right: 16 }}>
-            <div style={{
-              padding: '16px', borderRadius: 12,
-              background: 'var(--accent-soft)', border: '1px solid var(--accent-glow)',
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ position: 'fixed', left: 16, right: 16, bottom: 20 }}>
+            <div
+              style={{
+                padding: 16,
+                borderRadius: 18,
+                background: 'var(--accent-soft)',
+                border: '1px solid var(--accent-glow)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 12,
+                boxShadow: 'var(--shadow-md)',
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setProfileOpen(true)}
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  background: 'transparent',
+                  border: 'none',
+                  padding: 0,
+                  textAlign: 'left',
+                }}
+              >
                 <Avatar name={user.name} size={40} />
                 <div>
-                  <div style={{ fontWeight: 700, color: 'var(--text)' }}>{user.name}</div>
-                  <div style={{ fontSize: 12, color: 'var(--accent)', fontWeight: 700 }}>{user.role}</div>
+                  <div style={{ fontWeight: 800, color: 'var(--text)' }}>{user.name}</div>
+                  <div style={{ fontSize: 12, color: 'var(--accent)', fontWeight: 700, textTransform: 'uppercase' }}>
+                    {user.role || 'member'}
+                  </div>
                 </div>
-              </div>
-              <button onClick={handleLogout} style={{
-                padding: '8px 16px', borderRadius: 8,
-                background: 'var(--red-soft)', border: '1px solid rgba(255,92,106,0.3)',
-                color: 'var(--red)', fontSize: 13, fontWeight: 700,
-              }}>Logout</button>
+              </button>
+
+              <button
+                onClick={handleLogout}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: 999,
+                  background: 'var(--red-soft)',
+                  border: '1px solid rgba(255,92,106,0.3)',
+                  color: 'var(--red)',
+                  fontSize: 13,
+                  fontWeight: 800,
+                }}
+              >
+                Logout
+              </button>
             </div>
           </div>
-        )}
+          )}
+        <UserProfileModal
+          isOpen={profileOpen}
+          onClose={() => setProfileOpen(false)}
+          user={user}
+          activeGroupName={activeGroupName}
+          groupCount={myGroups?.length || 0}
+        />
       </div>
     );
   }
 
   return (
-    <div style={{
-      display: 'flex', minHeight: '100vh',
-      background: 'var(--bg)', fontFamily: "'DM Sans', sans-serif",
-    }}>
-      {/* Desktop Sidebar */}
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)', fontFamily: "'DM Sans', sans-serif" }}>
       {!isMobile && (
-        <aside style={{
-          width: collapsed ? 64 : 220, flexShrink: 0,
-          background: 'var(--surface)', borderRight: '1px solid var(--border)',
-          display: 'flex', flexDirection: 'column', padding: '0 0 24px',
-          transition: 'width .3s cubic-bezier(.4,0,.2,1)',
-          position: 'sticky', top: 0, height: '100vh', overflow: 'hidden',
-          zIndex: 50,
-        }}>
-          {/* Logo */}
-          <div style={{
-            padding: collapsed ? '20px 16px' : '20px',
-            borderBottom: '1px solid var(--border)', marginBottom: 8,
-          }}>
+        <aside
+          style={{
+            width: collapsed ? 84 : 248,
+            flexShrink: 0,
+            background: 'var(--surface-alt)',
+            borderRight: '1px solid var(--border)',
+            display: 'flex',
+            flexDirection: 'column',
+            padding: '0 0 24px',
+            transition: 'width .28s ease',
+            position: 'sticky',
+            top: 0,
+            height: '100vh',
+            overflow: 'hidden',
+            zIndex: 50,
+            boxShadow: 'var(--shadow)',
+          }}
+        >
+          <div style={{ padding: collapsed ? '20px 18px' : '22px 20px', borderBottom: '1px solid var(--border)', marginBottom: 10 }}>
             {collapsed ? (
-              <div style={{ width: 32, height: 32, borderRadius: 8,
-                background: 'linear-gradient(135deg, #2ECC9A, #1A7A5C)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 16, fontWeight: 900, color: '#000' }}>K</div>
+              <BrandMark small />
             ) : (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ width: 36, height: 36, borderRadius: 10,
-                  background: 'linear-gradient(135deg, #2ECC9A, #1A7A5C)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 18, fontWeight: 900, color: '#000', flexShrink: 0 }}>K</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <BrandMark />
                 <div>
-                  <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 900, fontSize: 17, color: 'var(--text)', letterSpacing: -0.5 }}>KhataNest</div>
-                  <div style={{ fontSize: 9, color: 'var(--text-muted)', letterSpacing: 1, textTransform: 'uppercase' }}>Hostel Finance</div>
+                  <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 900, fontSize: 18, color: 'var(--text)', letterSpacing: -0.5 }}>
+                    KhataNest
+                  </div>
+                  <div style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: 1, textTransform: 'uppercase' }}>
+                    SHARED FINANCE
+                  </div>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Navigation */}
-          <nav style={{ flex: 1, padding: '0 8px', overflowY: 'auto' }}>
-            {NAV_ITEMS.filter(n => n.path !== '/members' || isAdmin).map(item => {
-              const active = location.pathname === item.path;
-              return (
-                <Link key={item.path} to={item.path} style={{ textDecoration: 'none' }}>
-                  <div style={{
-                    display: 'flex', alignItems: 'center', gap: 12,
-                    padding: collapsed ? '11px 16px' : '11px 14px',
-                    borderRadius: 10, marginBottom: 3, cursor: 'pointer',
-                    background: active ? 'var(--accent-soft)' : 'transparent',
-                    color: active ? 'var(--accent)' : 'var(--text-muted)',
-                    borderLeft: `3px solid ${active ? 'var(--accent)' : 'transparent'}`,
-                    transition: 'all .15s', fontWeight: active ? 700 : 500,
-                    fontSize: 14, whiteSpace: 'nowrap',
-                  }}>
-                    <span style={{ fontSize: 17, flexShrink: 0 }}>{item.icon}</span>
-                    {!collapsed && <span>{item.label}</span>}
-                  </div>
-                </Link>
-              );
-            })}
+          <nav style={{ flex: 1, padding: '0 10px', overflowY: 'auto' }}>
+            {visibleNav.map((item) => (
+              <NavItem key={item.path} item={item} active={location.pathname === item.path} collapsed={collapsed} />
+            ))}
           </nav>
 
-          {/* User card */}
           {!collapsed && user && (
-            <div style={{
-              margin: '0 8px', padding: '12px', borderRadius: 12,
-              background: 'var(--accent-soft)', border: '1px solid var(--accent-glow)',
-            }}>
+            <button
+              type="button"
+              onClick={() => setProfileOpen(true)}
+              style={{
+                margin: '0 10px',
+                padding: 14,
+                width: 'calc(100% - 20px)',
+                borderRadius: 18,
+                background: 'var(--accent-soft)',
+                border: '1px solid var(--accent-glow)',
+                cursor: 'pointer',
+                textAlign: 'left',
+              }}
+            >
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <Avatar name={user.name} size={32} />
-                <div style={{ overflow: 'hidden' }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.name}</div>
-                  <div style={{ fontSize: 10, color: 'var(--accent)', letterSpacing: 1, fontWeight: 700, textTransform: 'uppercase' }}>{user.role}</div>
+                <Avatar name={user.name} size={36} />
+                <div style={{ minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 800,
+                      color: 'var(--text)',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {user.name}
+                  </div>
+                  <div style={{ fontSize: 10, color: 'var(--accent)', letterSpacing: 1, fontWeight: 700, textTransform: 'uppercase' }}>
+                    {user.role || 'member'}
+                  </div>
                 </div>
               </div>
-            </div>
+            </button>
           )}
         </aside>
       )}
 
-      {/* Main content */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-        {/* Topbar */}
-        <header style={{
-          height: 60, background: 'var(--surface)', borderBottom: '1px solid var(--border)',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: isMobile ? '0 16px' : '0 24px', flexShrink: 0,
-          position: 'sticky', top: 0, zIndex: 40,
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 16 }}>
-            {isMobile ? (
-              <button onClick={() => setMobileMenuOpen(true)} style={{
-                background: 'none', border: 'none', color: 'var(--text-muted)',
-                fontSize: 24, cursor: 'pointer', padding: '4px',
-              }}>☰</button>
-            ) : (
-              <button onClick={() => setCollapsed(c => !c)} style={{
-                background: 'none', border: 'none', color: 'var(--text-muted)',
-                fontSize: 18, cursor: 'pointer', padding: '6px', borderRadius: 8,
-              }}>☰</button>
-            )}
+        <header
+          style={{
+            height: 68,
+            background: 'var(--surface-alt)',
+            borderBottom: '1px solid var(--border)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: isMobile ? '0 16px' : '0 24px',
+            flexShrink: 0,
+            position: 'sticky',
+            top: 0,
+            zIndex: 40,
+            gap: 12,
+            boxShadow: 'var(--shadow)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 12 }}>
+            <button
+              onClick={() => (isMobile ? setMobileMenuOpen(true) : setCollapsed((current) => !current))}
+              style={{
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                color: 'var(--text-muted)',
+                fontSize: 16,
+                padding: '8px 10px',
+                borderRadius: 12,
+                boxShadow: 'var(--shadow)',
+              }}
+            >
+              |||
+            </button>
+
             <div style={{ fontSize: isMobile ? 13 : 14, color: 'var(--text-muted)' }}>
-              <span style={{ color: 'var(--text)', fontWeight: 700 }}>{currentPage}</span>
+              <span style={{ color: 'var(--text)', fontWeight: 800 }}>{currentPage}</span>
               {!isMobile && <span> · KhataNest</span>}
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 6 : 10 }}>
-            {/* Balance badge */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 10 }}>
+            {!isMobile && <GroupSwitcher />}
+
             {user && !isMobile && (
-              <div style={{
-                padding: '5px 12px', borderRadius: 99, fontSize: 12, fontWeight: 700,
-                background: user.balance >= 0 ? 'var(--accent-soft)' : 'var(--red-soft)',
-                color: user.balance >= 0 ? 'var(--accent)' : 'var(--red)',
-                border: `1px solid ${user.balance >= 0 ? 'var(--accent-glow)' : 'rgba(255,92,106,0.3)'}`,
-              }}>
-                {user.balance >= 0 ? '+' : ''}Rs. {user.balance?.toLocaleString() || 0}
+              <div
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: 999,
+                  fontSize: 12,
+                  fontWeight: 800,
+                  background: balanceBg,
+                  color: balanceFg,
+                  border: `1px solid ${balanceBorder}`,
+                }}
+              >
+                {(user.balance || 0) >= 0 ? '+' : ''}Rs. {(user.balance || 0).toLocaleString()}
               </div>
             )}
 
-            {/* Theme toggle */}
-            <button onClick={toggleTheme} title={isDark ? 'Light Mode' : 'Dark Mode'} style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              padding: isMobile ? '6px 10px' : '6px 12px', borderRadius: 10,
-              border: '1px solid var(--border)',
-              background: 'var(--surface-alt)',
-              color: 'var(--text-muted)', fontSize: isMobile ? 12 : 13, fontWeight: 600,
-            }}>
-              <span style={{ fontSize: isMobile ? 14 : 15 }}>{isDark ? '☀️' : '🌙'}</span>
-              {!isMobile && <span>{isDark ? 'Light' : 'Dark'}</span>}
-            </button>
+            <ThemeToggleButton compact={isMobile} />
 
-            {/* Logout - hidden on mobile (in sidebar) */}
             {!isMobile && (
-              <button onClick={handleLogout} style={{
-                padding: '7px 14px', borderRadius: 8, border: '1px solid rgba(255,92,106,0.3)',
-                background: 'var(--red-soft)', color: 'var(--red)', fontSize: 12, fontWeight: 700,
-              }}>Logout</button>
+              <button
+                onClick={handleLogout}
+                style={{
+                  padding: '8px 14px',
+                  borderRadius: 999,
+                  border: '1px solid rgba(255,92,106,0.3)',
+                  background: 'var(--red-soft)',
+                  color: 'var(--red)',
+                  fontSize: 12,
+                  fontWeight: 800,
+                }}
+              >
+                Logout
+              </button>
             )}
           </div>
         </header>
 
-        {/* Page */}
-        <main style={{ 
-          flex: 1, 
-          padding: isMobile ? '16px' : '24px', 
-          overflowY: 'auto',
-          maxWidth: '100%',
-        }} className="page-enter">
+        <main style={{ flex: 1, padding: isMobile ? 16 : 24, overflowY: 'auto', maxWidth: '100%' }} className="page-enter">
+          {!activeGroupId && location.pathname !== '/groups' && (
+            <div
+              style={{
+                marginBottom: 20,
+                padding: '14px 18px',
+                borderRadius: 18,
+                background: 'var(--banner-soft)',
+                border: '1px solid var(--accent-ring)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                flexWrap: 'wrap',
+                boxShadow: 'var(--shadow)',
+              }}
+            >
+              <span style={{ fontSize: 18, color: 'var(--accent)', fontWeight: 900 }}>!</span>
+              <span style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 700, flex: 1 }}>
+                You have no active group. Create or join one to get started.
+              </span>
+              <Link
+                to="/groups"
+                style={{
+                  fontSize: 12,
+                  fontWeight: 800,
+                  color: 'var(--accent)',
+                  textDecoration: 'none',
+                  background: 'var(--accent-soft)',
+                  padding: '6px 12px',
+                  borderRadius: 999,
+                  border: '1px solid var(--accent-ring)',
+                }}
+              >
+                Browse Groups →
+              </Link>
+            </div>
+          )}
+
           {children}
         </main>
       </div>
+      <UserProfileModal
+        isOpen={profileOpen}
+        onClose={() => setProfileOpen(false)}
+        user={user}
+        activeGroupName={activeGroupName}
+        groupCount={myGroups?.length || 0}
+      />
     </div>
   );
 };

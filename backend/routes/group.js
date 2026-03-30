@@ -1,18 +1,44 @@
-const express = require('express');
-const router = express.Router();
+// routes/groups.js
+const express  = require('express');
+const router   = express.Router();
 const { body } = require('express-validator');
-const { getGroup, addMember, removeMember, updateGroup, monthlyReset } = require('../controllers/groupController');
-const { protect, adminOnly, requireGroup } = require('../middleware/auth');
-const validate = require('../middleware/validate');
+const {
+  getAllGroups, getMyGroups, getGroup,
+  createGroup, updateGroup, deleteGroup,
+  sendJoinRequest, getJoinRequests, handleJoinRequest,
+  getMyRequests, leaveGroup, transferAdmin,
+  removeMember, monthlyReset,
+} = require('../controllers/groupController');
+const { protect } = require('../middleware/auth');
+const validate    = require('../middleware/validate');
 
-router.use(protect, requireGroup);
-router.get('/', getGroup);
-router.put('/', adminOnly, updateGroup);
-router.post('/reset', adminOnly, monthlyReset);
-router.post('/members', adminOnly,
-  [body('name').trim().notEmpty().withMessage('Name required'),
-   body('email').isEmail().withMessage('Valid email required'),
-   body('password').isLength({ min: 6 }).withMessage('Password min 6 chars')],
-  validate, addMember);
-router.delete('/members/:memberId', adminOnly, removeMember);
+router.use(protect);
+
+// Discovery & my groups
+router.get('/',            getAllGroups);
+router.get('/my',          getMyGroups);
+router.get('/requests/my', getMyRequests);
+
+// Create group
+router.post('/',
+  [body('name').trim().notEmpty().withMessage('Group name is required')],
+  validate, createGroup,
+);
+
+// Single group
+router.get   ('/:id', getGroup);
+router.put   ('/:id', updateGroup);
+router.delete('/:id', deleteGroup);
+
+// Join requests
+router.post('/:id/request',              sendJoinRequest);
+router.get ('/:id/requests',             getJoinRequests);
+router.put ('/:id/requests/:reqId',      handleJoinRequest);
+
+// Group actions
+router.post  ('/:id/leave',              leaveGroup);
+router.put   ('/:id/transfer-admin',     transferAdmin);
+router.delete('/:id/members/:memberId',  removeMember);
+router.post  ('/:id/reset',              monthlyReset);
+
 module.exports = router;

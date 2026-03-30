@@ -1,102 +1,420 @@
-// pages/PaymentsPage.js
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { paymentAPI, groupAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Modal, { ConfirmModal } from '../components/Modal';
-import FormField from '../components/FormField';
 import Spinner from '../components/Spinner';
 import EmptyState from '../components/EmptyState';
 import Pagination from '../components/Pagination';
 import { Avatar } from '../components/Layout';
+import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { format } from 'date-fns';
+import { addDays, addMonths, format, isSameDay, isSameMonth, parseISO, startOfMonth, startOfWeek, subMonths } from 'date-fns';
+import { AVATAR_COLORS } from '../theme';
 
-const COLORS = ['#2ECC9A', '#5B8DEF', '#FFB547', '#E879F9', '#FB923C', '#34D399'];
+const COLORS = AVATAR_COLORS;
+const formatCurrency = (value) => `Rs. ${Number(value || 0).toLocaleString()}`;
+const PAYMENT_METHOD_OPTIONS = [
+  { value: 'cash', label: 'Cash' },
+  { value: 'bank_transfer', label: 'Bank Transfer' },
+  { value: 'online', label: 'Online' },
+  { value: 'other', label: 'Other' },
+];
+
+const getMemberPaymentStatus = (member) => {
+  if (!member) return { text: '', tone: 'neutral' };
+  if (member.balance < 0) return { text: `Owes ${formatCurrency(Math.abs(member.balance))}`, tone: 'danger' };
+  if (member.balance === 0) return { text: 'Settled', tone: 'neutral' };
+  return { text: `Overpaid ${formatCurrency(member.balance)}`, tone: 'success' };
+};
+
+const PaymentFieldIcon = ({ type }) => {
+  const paths = {
+    user: (
+      <>
+        <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Z" />
+        <path d="M5.5 19a6.5 6.5 0 0 1 13 0" />
+      </>
+    ),
+    money: (
+      <>
+        <path d="M4 7.5h16v9H4z" />
+        <path d="M8 12h8" />
+        <path d="M12 9.5v5" />
+      </>
+    ),
+    method: (
+      <>
+        <rect x="4" y="6.5" width="16" height="11" rx="2.5" />
+        <path d="M4 10.5h16" />
+      </>
+    ),
+    calendar: (
+      <>
+        <rect x="4.5" y="6.5" width="15" height="13" rx="2.5" />
+        <path d="M8 4.5v4" />
+        <path d="M16 4.5v4" />
+        <path d="M4.5 10h15" />
+      </>
+    ),
+    note: (
+      <>
+        <path d="M6.5 5.5h8l3 3v10a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2v-11a2 2 0 0 1 2-2Z" />
+        <path d="M14.5 5.5v3h3" />
+        <path d="M8.5 12h7" />
+        <path d="M8.5 15h5.5" />
+      </>
+    ),
+  };
+
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="payments-floating-field__icon-svg">
+      {paths[type]}
+    </svg>
+  );
+};
+
+const FloatingField = ({ label, icon, required = false, filled = false, children, hint }) => (
+  <div className={`payments-floating-field ${filled ? 'payments-floating-field--filled' : ''}`}>
+    <div className="payments-floating-field__control">
+      <span className="payments-floating-field__icon">
+        <PaymentFieldIcon type={icon} />
+      </span>
+      {children}
+      <label className="payments-floating-field__label">
+        {label}
+        {required && <span className="payments-floating-field__required">*</span>}
+      </label>
+    </div>
+    {hint && <div className="payments-floating-field__hint">{hint}</div>}
+  </div>
+);
+
+const FloatingSelect = ({
+  label,
+  icon,
+  required = false,
+  value,
+  onChange,
+  options,
+  placeholder,
+  renderSelected,
+  renderOption,
+  dropdownClassName = '',
+}) => {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef(null);
+  const selectedOption = options.find((option) => option.value === value) || null;
+
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const handlePointerDown = (event) => {
+      if (!containerRef.current?.contains(event.target)) {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, [open]);
+
+  return (
+    <div
+      ref={containerRef}
+      className={`payments-floating-field payments-floating-select ${value ? 'payments-floating-field--filled' : ''} ${open ? 'payments-floating-select--open' : ''}`.trim()}
+    >
+      <div className="payments-floating-field__control">
+        <span className="payments-floating-field__icon">
+          <PaymentFieldIcon type={icon} />
+        </span>
+        <button
+          type="button"
+          className="payments-floating-field__input payments-floating-field__input--button"
+          onClick={() => setOpen((current) => !current)}
+          aria-expanded={open}
+        >
+          <span className={`payments-floating-select__value ${!selectedOption ? 'payments-floating-select__value--placeholder' : ''}`}>
+            {selectedOption ? renderSelected(selectedOption) : placeholder}
+          </span>
+          <span className={`payments-floating-select__chevron ${open ? 'payments-floating-select__chevron--open' : ''}`} />
+        </button>
+        <label className="payments-floating-field__label">
+          {label}
+          {required && <span className="payments-floating-field__required">*</span>}
+        </label>
+      </div>
+
+      {open && (
+        <div className={`payments-floating-select__menu ${dropdownClassName}`.trim()}>
+          {options.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              className={`payments-floating-select__option ${option.value === value ? 'payments-floating-select__option--active' : ''}`}
+              onClick={() => {
+                onChange(option.value);
+                setOpen(false);
+              }}
+            >
+              {renderOption(option)}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const FloatingDatePicker = ({ label, icon, value, onChange }) => {
+  const [open, setOpen] = useState(false);
+  const [visibleMonth, setVisibleMonth] = useState(() => value ? parseISO(value) : new Date());
+  const [openUpward, setOpenUpward] = useState(false);
+  const containerRef = useRef(null);
+  const selectedDate = value ? parseISO(value) : null;
+
+  useEffect(() => {
+    if (value) {
+      setVisibleMonth(parseISO(value));
+    }
+  }, [value]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const updatePlacement = () => {
+      if (!containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const estimatedPanelHeight = 360;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      setOpenUpward(spaceBelow < estimatedPanelHeight && spaceAbove > spaceBelow);
+    };
+
+    updatePlacement();
+
+    const handlePointerDown = (event) => {
+      if (!containerRef.current?.contains(event.target)) {
+        setOpen(false);
+      }
+    };
+
+    const handleResize = () => updatePlacement();
+
+    document.addEventListener('mousedown', handlePointerDown);
+    window.addEventListener('resize', handleResize);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [open]);
+
+  const monthStart = startOfMonth(visibleMonth);
+  const calendarStart = startOfWeek(monthStart, { weekStartsOn: 0 });
+  const dayLabels = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+  const days = Array.from({ length: 42 }, (_, index) => addDays(calendarStart, index));
+
+  const pickDate = (date) => {
+    onChange(format(date, 'yyyy-MM-dd'));
+    setOpen(false);
+  };
+
+  return (
+    <div
+      ref={containerRef}
+      className={`payments-floating-field payments-floating-select payments-floating-date ${value ? 'payments-floating-field--filled' : ''} ${open ? 'payments-floating-select--open' : ''}`.trim()}
+    >
+      <div className="payments-floating-field__control">
+        <span className="payments-floating-field__icon">
+          <PaymentFieldIcon type={icon} />
+        </span>
+        <button
+          type="button"
+          className="payments-floating-field__input payments-floating-field__input--button payments-floating-date__trigger"
+          onClick={() => setOpen((current) => !current)}
+          aria-expanded={open}
+        >
+          <span className={`payments-floating-select__value ${!value ? 'payments-floating-select__value--placeholder' : ''}`}>
+            {value ? format(parseISO(value), 'MM/dd/yyyy') : 'Select date'}
+          </span>
+          <span className={`payments-floating-select__chevron ${open ? 'payments-floating-select__chevron--open' : ''}`} />
+        </button>
+        <label className="payments-floating-field__label">{label}</label>
+      </div>
+
+      {open && (
+        <div className={`payments-floating-date__panel ${openUpward ? 'payments-floating-date__panel--up' : ''}`.trim()}>
+          <div className="payments-floating-date__header">
+            <button
+              type="button"
+              className="payments-floating-date__nav"
+              onClick={() => setVisibleMonth((current) => subMonths(current, 1))}
+              aria-label="Previous month"
+            >
+              <span className="payments-floating-date__nav-icon payments-floating-date__nav-icon--left" />
+            </button>
+            <div className="payments-floating-date__month">{format(visibleMonth, 'MMMM yyyy')}</div>
+            <button
+              type="button"
+              className="payments-floating-date__nav"
+              onClick={() => setVisibleMonth((current) => addMonths(current, 1))}
+              aria-label="Next month"
+            >
+              <span className="payments-floating-date__nav-icon payments-floating-date__nav-icon--right" />
+            </button>
+          </div>
+
+          <div className="payments-floating-date__weekdays">
+            {dayLabels.map((dayLabel) => (
+              <span key={dayLabel} className="payments-floating-date__weekday">{dayLabel}</span>
+            ))}
+          </div>
+
+          <div className="payments-floating-date__grid">
+            {days.map((day) => {
+              const isSelected = selectedDate ? isSameDay(day, selectedDate) : false;
+              const isCurrentMonth = isSameMonth(day, visibleMonth);
+              const isToday = isSameDay(day, new Date());
+
+              return (
+                <button
+                  key={day.toISOString()}
+                  type="button"
+                  className={`payments-floating-date__day ${isCurrentMonth ? '' : 'payments-floating-date__day--muted'} ${isSelected ? 'payments-floating-date__day--selected' : ''} ${isToday ? 'payments-floating-date__day--today' : ''}`.trim()}
+                  onClick={() => pickDate(day)}
+                >
+                  {format(day, 'd')}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const NoGroup = () => (
+  <div className="payments-empty">
+    <div className="payments-empty__icon">CASH</div>
+    <h3 className="payments-empty__title">No Active Group</h3>
+    <p className="payments-empty__copy">Select or join a group to manage payment activity.</p>
+    <Link to="/groups" style={{ textDecoration: 'none' }}>
+      <button className="payments-action payments-action--primary" type="button">
+        Browse Groups
+      </button>
+    </Link>
+  </div>
+);
+
+const OverviewCard = ({ label, value, note, tone = 'default', featured = false }) => (
+  <article className={`payments-overview-card payments-overview-card--${tone} ${featured ? 'payments-overview-card--featured' : ''}`}>
+    <div className="payments-overview-card__label">{label}</div>
+    <div className="payments-overview-card__value">{value}</div>
+    {note && <div className="payments-overview-card__note">{note}</div>}
+  </article>
+);
 
 const PaymentsPage = () => {
-  const { isAdmin, updateUser, user } = useAuth();
-  const [payments, setPayments]         = useState([]);
-  const [allMembers, setAllMembers]     = useState([]);
-  const [loading, setLoading]           = useState(true);
-  const [pagination, setPagination]     = useState({ page: 1, pages: 1, total: 0 });
+  const { isAdmin, updateUser, user, activeGroupId } = useAuth();
+  const [payments, setPayments] = useState([]);
+  const [allMembers, setAllMembers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0 });
   const [monthlyTotal, setMonthlyTotal] = useState(0);
   const [adminShareSummary, setAdminShareSummary] = useState(null);
-  const [activeTab, setActiveTab]       = useState('all');   // 'all' | 'members' | 'myshare'
-  const [showModal, setShowModal]       = useState(false);
-  const [paymentMode, setPaymentMode]   = useState('member'); // 'member' | 'self'
-  const [deleteId, setDeleteId]         = useState(null);
-  const [saving, setSaving]             = useState(false);
-  const [deleting, setDeleting]         = useState(false);
-  const [form, setForm] = useState({
-    memberId: '', amount: '', note: '', paymentMethod: 'cash', date: '',
-  });
+  const [activeTab, setActiveTab] = useState('all');
+  const [showModal, setShowModal] = useState(false);
+  const [paymentMode, setPaymentMode] = useState('member');
+  const [deleteId, setDeleteId] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [form, setForm] = useState({ memberId: '', amount: '', note: '', paymentMethod: 'cash', date: '' });
+
+  const applySummary = useCallback((summary) => {
+    if (!summary) return;
+    if (typeof summary.monthlyTotal === 'number') setMonthlyTotal(summary.monthlyTotal);
+    if (summary.adminShareSummary !== undefined) setAdminShareSummary(summary.adminShareSummary);
+  }, []);
+
+  const paymentMatchesActiveTab = useCallback((payment) => {
+    if (!payment) return false;
+    if (activeTab === 'members') return payment.isAdminSelfPayment !== true;
+    if (activeTab === 'myshare') return payment.isAdminSelfPayment === true;
+    return true;
+  }, [activeTab]);
 
   const loadPayments = useCallback(async (page = 1) => {
+    if (!activeGroupId) {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
-      // Map tab to API type filter
       const typeMap = { all: '', members: 'member', myshare: 'self' };
-      const res = await paymentAPI.getPayments({ page, limit: 10, type: typeMap[activeTab] });
+      const res = await paymentAPI.getPayments(activeGroupId, { page, limit: 10, type: typeMap[activeTab] });
       setPayments(res.data.payments);
       setPagination(res.data.pagination);
       setMonthlyTotal(res.data.monthlyTotal);
-      if (res.data.adminShareSummary) {
-        setAdminShareSummary(res.data.adminShareSummary);
-      }
+      if (res.data.adminShareSummary !== undefined) setAdminShareSummary(res.data.adminShareSummary);
     } catch {
       toast.error('Failed to load payments');
     } finally {
       setLoading(false);
     }
-  }, [activeTab]);
-
-  useEffect(() => { loadPayments(); }, [loadPayments]);
+  }, [activeGroupId, activeTab]);
 
   useEffect(() => {
-    if (isAdmin) {
-      groupAPI.getGroup()
-        .then(res => setAllMembers(res.data.group.members))
-        .catch(() => {});
-    }
-  }, [isAdmin]);
+    loadPayments();
+  }, [loadPayments]);
 
-  const refreshAdminBalance = async () => {
+  const loadMembers = useCallback(async () => {
+    if (!isAdmin || !activeGroupId) return;
+    try {
+      const res = await groupAPI.getGroup(activeGroupId);
+      setAllMembers(res.data.group.members);
+    } catch {}
+  }, [activeGroupId, isAdmin]);
+
+  useEffect(() => {
+    loadMembers();
+  }, [loadMembers]);
+
+  const refreshBalance = async () => {
     try {
       const { authAPI } = await import('../services/api');
       const res = await authAPI.getMe();
       updateUser(res.data.user);
-    } catch (e) {
-      console.error('Balance refresh failed', e);
+    } catch (error) {
+      console.error(error);
     }
   };
 
   const openModal = (mode = 'member') => {
     setPaymentMode(mode);
     const today = format(new Date(), 'yyyy-MM-dd');
-    if (mode === 'self') {
-      setForm({ memberId: user?._id || '', amount: '', note: '', paymentMethod: 'cash', date: today });
-    } else {
-      setForm({ memberId: '', amount: '', note: '', paymentMethod: 'cash', date: today });
-    }
+    setForm({ memberId: mode === 'self' ? user?._id || '' : '', amount: '', note: '', paymentMethod: 'cash', date: today });
     setShowModal(true);
   };
 
   const handleRecord = async () => {
-    if (!form.memberId || !form.amount) {
-      return toast.error('Please select a person and enter amount');
-    }
+    if (!form.memberId || !form.amount) return toast.error('Please select a person and enter amount');
     setSaving(true);
     try {
-      await paymentAPI.recordPayment({ ...form, amount: parseFloat(form.amount) });
-      toast.success(
-        paymentMode === 'self'
-          ? 'Your share payment recorded!'
-          : 'Member payment recorded!'
-      );
+      const res = await paymentAPI.recordPayment(activeGroupId, { ...form, amount: parseFloat(form.amount) });
+      applySummary(res.data.summary);
+
+      if (paymentMatchesActiveTab(res.data.payment)) {
+        setPayments((current) => [res.data.payment, ...current].slice(0, 10));
+        setPagination((current) => {
+          const total = (current.total || 0) + 1;
+          return { ...current, page: 1, total, pages: Math.max(1, Math.ceil(total / 10)) };
+        });
+      }
+
+      toast.success(paymentMode === 'self' ? 'Your share payment recorded!' : 'Member payment recorded!');
       setShowModal(false);
-      setForm({ memberId: '', amount: '', note: '', paymentMethod: 'cash', date: '' });
-      await loadPayments();
-      await refreshAdminBalance();
+      await Promise.all([loadPayments(1), refreshBalance(), loadMembers()]);
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to record');
     } finally {
@@ -107,11 +425,17 @@ const PaymentsPage = () => {
   const handleDelete = async () => {
     setDeleting(true);
     try {
-      await paymentAPI.deletePayment(deleteId);
+      const deletedId = deleteId;
+      const res = await paymentAPI.deletePayment(activeGroupId, deletedId);
+      applySummary(res.data.summary);
+      setPayments((current) => current.filter((payment) => payment._id !== deletedId));
+      setPagination((current) => {
+        const total = Math.max(0, (current.total || 0) - 1);
+        return { ...current, total, pages: Math.max(1, Math.ceil(total / 10)) };
+      });
       toast.success('Payment reversed');
       setDeleteId(null);
-      await loadPayments();
-      await refreshAdminBalance();
+      await Promise.all([loadPayments(1), refreshBalance(), loadMembers()]);
     } catch {
       toast.error('Failed to reverse');
     } finally {
@@ -119,404 +443,319 @@ const PaymentsPage = () => {
     }
   };
 
-  const regularMembers = allMembers.filter(m => m.role !== 'admin');
-  const selectedMember = allMembers.find(m => m._id === form.memberId);
+  const regularMembers = allMembers.filter((member) => member.role !== 'admin');
+  const selectedMember = allMembers.find((member) => member._id === form.memberId);
+  const shareRemaining = adminShareSummary?.remaining || 0;
 
-  const TABS = [
-    { key: 'all',      label: 'All Payments' },
-    { key: 'members',  label: 'Member Payments' },
-    { key: 'myshare',  label: 'My Share Payments' },
+  const tabItems = [
+    { key: 'all', label: 'All Payments' },
+    { key: 'members', label: 'Member Payments' },
+    { key: 'myshare', label: 'My Share' },
   ];
 
-  // Admin share remaining
-  const shareRemaining = adminShareSummary
-    ? adminShareSummary.remaining
-    : 0;
+  const insights = useMemo(() => {
+    const memberPayments = payments.filter((payment) => payment.isAdminSelfPayment !== true).length;
+    const selfPayments = payments.filter((payment) => payment.isAdminSelfPayment === true).length;
+    return {
+      memberPayments,
+      selfPayments,
+      sharePaid: adminShareSummary?.totalPaid || 0,
+    };
+  }, [payments, adminShareSummary]);
+
+  if (!activeGroupId) return <NoGroup />;
 
   return (
-    <div>
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div style={{
-        display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
-        marginBottom: 24, flexWrap: 'wrap', gap: 12,
-      }}>
-        <div>
-          <h2 style={{
-            fontFamily: "'Syne', sans-serif", fontWeight: 900,
-            fontSize: 26, color: 'var(--text)', margin: 0,
-          }}>Payments</h2>
-          <p style={{ color: 'var(--text-muted)', fontSize: 13, margin: '4px 0 0' }}>
-            Track member payments and your own share contributions
-          </p>
-        </div>
-        {isAdmin && (
-          <div style={{ display: 'flex', gap: 10 }}>
-            <button onClick={() => openModal('member')} style={{
-              background: 'linear-gradient(135deg, #2ECC9A, #1A7A5C)',
-              border: 'none', borderRadius: 10, padding: '10px 18px',
-              color: '#000', fontWeight: 800, cursor: 'pointer', fontSize: 13,
-            }}>+ Record Member Payment</button>
-            <button onClick={() => openModal('self')} style={{
-              background: 'linear-gradient(135deg, #5B8DEF, #3B5FBF)',
-              border: 'none', borderRadius: 10, padding: '10px 18px',
-              color: '#fff', fontWeight: 800, cursor: 'pointer', fontSize: 13,
-            }}>+ Pay My Share</button>
-          </div>
-        )}
-      </div>
-
-      {/* ── Summary Cards ──────────────────────────────────────────────────── */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: isAdmin ? 'repeat(4, 1fr)' : '1fr 1fr',
-        gap: 16, marginBottom: 24,
-      }}>
-        {/* Received this month */}
-        <div style={{
-          background: 'var(--surface)',
-          border: '1px solid var(--accent-glow)',
-          borderRadius: 16, padding: 20,
-        }}>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 600 }}>
-            Received This Month
-          </div>
-          <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 900, fontSize: 24, color: 'var(--accent)' }}>
-            Rs. {monthlyTotal?.toLocaleString()}
+    <div className="payments-page">
+      <section className="payments-hero">
+        <div className="payments-hero__copy">
+          <div className="payments-hero__eyebrow">Payments Desk</div>
+          <h2 className="payments-hero__title">Payments</h2>
+          <div className="payments-hero__chips">
+            <span className="payments-chip payments-chip--accent">{formatCurrency(monthlyTotal)} this month</span>
+            <span className="payments-chip">{pagination.total || 0} total records</span>
+            {isAdmin && adminShareSummary && <span className={`payments-chip ${shareRemaining > 0 ? 'payments-chip--danger' : 'payments-chip--success'}`}>{formatCurrency(shareRemaining)} remaining</span>}
           </div>
         </div>
 
-        {/* Total payments */}
-        <div style={{
-          background: 'var(--surface)',
-          border: '1px solid rgba(255,92,106,0.3)',
-          borderRadius: 16, padding: 20,
-        }}>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 600 }}>
-            Total Payments
+        <div className="payments-hero__aside">
+          <div className="payments-hero__ledger">
+            <div className="payments-hero__ledger-line">
+              <span className="payments-hero__ledger-label">Member Payments</span>
+              <strong className="payments-hero__ledger-value">{insights.memberPayments}</strong>
+            </div>
+            <div className="payments-hero__ledger-line">
+              <span className="payments-hero__ledger-label">My Share Entries</span>
+              <strong className="payments-hero__ledger-value">{insights.selfPayments}</strong>
+            </div>
+            {isAdmin && adminShareSummary && (
+              <div className="payments-hero__ledger-line">
+                <span className="payments-hero__ledger-label">Share Paid</span>
+                <strong className="payments-hero__ledger-value">{formatCurrency(insights.sharePaid)}</strong>
+              </div>
+            )}
           </div>
-          <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 900, fontSize: 24, color: 'var(--text)' }}>
-            {pagination.total || 0}
-          </div>
-        </div>
 
-        {/* Admin's own share — only shown to admin */}
-        {isAdmin && adminShareSummary && (
+          {isAdmin && (
+            <div className="payments-hero__actions">
+              <button type="button" className="payments-action payments-action--primary" onClick={() => openModal('member')}>
+                Record Member Payment
+              </button>
+              <button type="button" className="payments-action payments-action--secondary" onClick={() => openModal('self')}>
+                Pay My Share
+              </button>
+            </div>
+          )}
+        </div>
+      </section>
+
+      <section className="payments-overview">
+        <OverviewCard label="Received This Month" value={formatCurrency(monthlyTotal)} note="Live cash inflow" tone="success" featured />
+        <OverviewCard label="Total Payments" value={pagination.total || 0} note="Recorded transactions" tone="default" />
+        {isAdmin && adminShareSummary ? (
           <>
-            <div style={{
-              background: 'var(--surface)',
-              border: '1px solid rgba(91,141,239,0.35)',
-              borderRadius: 16, padding: 20,
-            }}>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 600 }}>
-                My Total Share Owed
-              </div>
-              <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 900, fontSize: 24, color: '#5B8DEF' }}>
-                Rs. {adminShareSummary.totalOwed?.toLocaleString()}
-              </div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
-                Paid: Rs. {adminShareSummary.totalPaid?.toLocaleString()}
-              </div>
+            <OverviewCard label="My Share Owed" value={formatCurrency(adminShareSummary.totalOwed)} note={`Paid ${formatCurrency(adminShareSummary.totalPaid)}`} tone="info" />
+            <OverviewCard label="My Remaining Share" value={formatCurrency(shareRemaining)} note={shareRemaining > 0 ? 'Still unpaid' : 'Fully paid'} tone={shareRemaining > 0 ? 'danger' : 'success'} />
+          </>
+        ) : (
+          <>
+            <OverviewCard label="Member Payments" value={insights.memberPayments} note="Payments from members" tone="success" />
+            <OverviewCard label="My Share Records" value={insights.selfPayments} note="Entries tagged to your share" tone="info" />
+          </>
+        )}
+      </section>
+
+      <section className="payments-panel">
+        <div className="payments-panel__header">
+          <div>
+            <h3 className="payments-panel__title">Payment Activity</h3>
+          </div>
+
+          {isAdmin && (
+            <div className="payments-tabs">
+              {tabItems.map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  className={`payments-tab ${activeTab === tab.key ? 'payments-tab--active' : ''}`}
+                  onClick={() => setActiveTab(tab.key)}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {loading ? (
+          <Spinner />
+        ) : payments.length === 0 ? (
+          <EmptyState icon="💵" title="No payments yet" message="Record a payment when someone clears a balance." />
+        ) : (
+          <>
+            <div className="payments-feed">
+              {payments.map((payment, index) => {
+                const isAdminSelf = payment.isAdminSelfPayment === true;
+                const chipTone = isAdminSelf ? 'info' : 'success';
+
+                return (
+                  <article key={payment._id} className={`payment-entry payment-entry--${chipTone}`}>
+                    <div className="payment-entry__left">
+                      <Avatar name={payment.member?.name || '?'} size={44} color={isAdminSelf ? 'var(--blue)' : COLORS[index % COLORS.length]} />
+                      <div className="payment-entry__copy">
+                        <div className="payment-entry__topline">
+                          <h4 className="payment-entry__name">{payment.member?.name}</h4>
+                          <span className={`payment-entry__chip payment-entry__chip--${chipTone}`}>
+                            {isAdminSelf ? 'My Share' : 'Member Paid'}
+                          </span>
+                        </div>
+                        <div className="payment-entry__meta">
+                          <span>{format(new Date(payment.date), 'MMM d, yyyy')}</span>
+                          <span>{payment.paymentMethod.replace('_', ' ')}</span>
+                          {payment.note && <span>{payment.note}</span>}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="payment-entry__right">
+                      <div className={`payment-entry__amount ${isAdminSelf ? 'payment-entry__amount--success' : 'payment-entry__amount--info'}`}>
+                        +{formatCurrency(payment.amount)}
+                      </div>
+                      {isAdmin && (
+                        <button type="button" className="payment-entry__reverse" onClick={() => setDeleteId(payment._id)}>
+                          Reverse
+                        </button>
+                      )}
+                    </div>
+                  </article>
+                );
+              })}
             </div>
 
-            <div style={{
-              background: shareRemaining > 0 ? 'var(--red-soft)' : 'var(--accent-soft)',
-              border: `1px solid ${shareRemaining > 0 ? 'rgba(255,92,106,0.3)' : 'var(--accent-glow)'}`,
-              borderRadius: 16, padding: 20,
-            }}>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 600 }}>
-                My Remaining Share
-              </div>
-              <div style={{
-                fontFamily: "'Syne', sans-serif", fontWeight: 900, fontSize: 24,
-                color: shareRemaining > 0 ? 'var(--red)' : 'var(--accent)',
-              }}>
-                Rs. {shareRemaining?.toLocaleString()}
-              </div>
-              <div style={{ fontSize: 11, color: shareRemaining > 0 ? 'var(--red)' : 'var(--accent)', marginTop: 4 }}>
-                {shareRemaining > 0 ? '⚠️ Still unpaid' : '✅ Fully paid'}
-              </div>
+            <div className="payments-panel__footer">
+              <Pagination current={pagination.page} total={pagination.pages} onChange={loadPayments} />
             </div>
           </>
         )}
-      </div>
+      </section>
 
-      {/* ── Admin's Share Detail Banner ─────────────────────────────────────── */}
-      {isAdmin && adminShareSummary && adminShareSummary.totalOwed > 0 && (
-        <div style={{
-          background: 'linear-gradient(135deg, #0f1520, #0a1020)',
-          border: '1px solid rgba(91,141,239,0.25)',
-          borderRadius: 14, padding: '18px 24px', marginBottom: 24,
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          flexWrap: 'wrap', gap: 12,
-        }}>
-          <div>
-            <div style={{ fontSize: 12, color: 'rgba(91,141,239,0.7)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>
-              👤 Your Personal Share Tracker
-            </div>
-            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }}>
-              You've been included in expenses totalling{' '}
-              <span style={{ color: '#5B8DEF', fontWeight: 700 }}>
-                Rs. {adminShareSummary.totalOwed?.toLocaleString()}
-              </span>.
-              You've paid{' '}
-              <span style={{ color: '#2ECC9A', fontWeight: 700 }}>
-                Rs. {adminShareSummary.totalPaid?.toLocaleString()}
-              </span>.
-              {shareRemaining > 0 && (
-                <span style={{ color: '#FF5C6A', fontWeight: 700 }}>
-                  {' '}Rs. {shareRemaining.toLocaleString()} still outstanding.
-                </span>
-              )}
-              {shareRemaining === 0 && adminShareSummary.totalOwed > 0 && (
-                <span style={{ color: '#2ECC9A', fontWeight: 700 }}> You're all caught up! ✅</span>
-              )}
-            </div>
-          </div>
-          {shareRemaining > 0 && (
-            <button onClick={() => openModal('self')} style={{
-              background: 'linear-gradient(135deg, #5B8DEF, #3B5FBF)',
-              border: 'none', borderRadius: 10, padding: '10px 18px',
-              color: '#fff', fontWeight: 800, cursor: 'pointer', fontSize: 13,
-              whiteSpace: 'nowrap',
-            }}>Pay My Share →</button>
-          )}
-        </div>
-      )}
-
-      {/* ── Tabs ───────────────────────────────────────────────────────────── */}
-      {isAdmin && (
-        <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
-          {TABS.map(tab => (
-            <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{
-              padding: '7px 16px', borderRadius: 99, fontSize: 13, fontWeight: 600,
-              cursor: 'pointer', transition: 'all .15s',
-              background: activeTab === tab.key ? 'var(--accent-soft)' : 'var(--surface)',
-              color     : activeTab === tab.key ? 'var(--accent)' : 'var(--text-muted)',
-              border    : `1px solid ${activeTab === tab.key ? 'var(--accent-glow)' : 'var(--border)'}`,
-            }}>{tab.label}</button>
-          ))}
-        </div>
-      )}
-
-      {/* ── Payment List ───────────────────────────────────────────────────── */}
-      {loading ? <Spinner /> : payments.length === 0 ? (
-        <EmptyState
-          icon="💵"
-          title={activeTab === 'myshare' ? 'No share payments yet' : 'No payments recorded'}
-          message={
-            activeTab === 'myshare'
-              ? "Use 'Pay My Share' to record your own contributions."
-              : "Record a payment when a member pays back their dues."
-          }
-        />
-      ) : (
-        <div style={{
-          background: 'var(--surface)', border: '1px solid var(--border)',
-          borderRadius: 16, overflow: 'hidden',
-        }}>
-          <div style={{ padding: '16px 20px 0', fontWeight: 700, color: 'var(--text)', fontSize: 15 }}>
-            Payment History
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            {payments.map((p, i) => {
-              const isAdminSelf = p.isAdminSelfPayment === true;
-              return (
-                <div key={p._id} style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '14px 20px',
-                  borderBottom: i < payments.length - 1 ? '1px solid var(--border)' : 'none',
-                  transition: 'background .15s',
-                }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-alt)'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                    <Avatar
-                      name={p.member?.name || '?'}
-                      size={40}
-                      color={isAdminSelf ? '#5B8DEF' : COLORS[i % COLORS.length]}
-                    />
-                    <div>
-                      <div style={{
-                        fontWeight: 700, color: 'var(--text)', fontSize: 14,
-                        display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
-                      }}>
-                        {p.member?.name}
-                        <span style={{
-                          fontSize: 10, padding: '2px 7px', borderRadius: 99, fontWeight: 700,
-                          background: isAdminSelf ? 'rgba(91,141,239,0.15)' : 'var(--accent-soft)',
-                          color     : isAdminSelf ? '#5B8DEF'               : 'var(--accent)',
-                          border    : `1px solid ${isAdminSelf ? 'rgba(91,141,239,0.3)' : 'var(--accent-glow)'}`,
-                        }}>
-                          {isAdminSelf ? 'MY SHARE' : 'MEMBER PAID'}
-                        </span>
-                      </div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                        {format(new Date(p.date), 'MMM d, yyyy')}
-                        {' · '}{p.paymentMethod.replace('_', ' ')}
-                        {p.note && ` · ${p.note}`}
-                        {p.receivedBy && !isAdminSelf && ` · Recorded by ${p.receivedBy.name}`}
-                      </div>
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                    <div style={{
-                      fontWeight: 800, fontSize: 16,
-                      color: isAdminSelf ? '#5B8DEF' : 'var(--accent)',
-                    }}>
-                      +Rs. {p.amount?.toLocaleString()}
-                    </div>
-                    {isAdmin && (
-                      <button onClick={() => setDeleteId(p._id)} style={{
-                        background: 'var(--red-soft)', border: '1px solid rgba(255,92,106,0.3)',
-                        borderRadius: 6, padding: '4px 10px', color: 'var(--red)',
-                        fontSize: 11, fontWeight: 600, cursor: 'pointer',
-                      }}>Reverse</button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border)' }}>
-            <Pagination current={pagination.page} total={pagination.pages} onChange={loadPayments} />
-          </div>
-        </div>
-      )}
-
-      {/* ── Record Payment Modal ───────────────────────────────────────────── */}
       <Modal
         isOpen={showModal}
         onClose={() => setShowModal(false)}
-        title={paymentMode === 'self' ? 'Pay My Share' : 'Record Member Payment'}
+        title={(
+          <span className="payments-modal__title-group">
+            <span className={`payments-modal__logo payments-modal__logo--${paymentMode === 'self' ? 'accent' : 'primary'}`}>
+              {paymentMode === 'self' ? 'SH' : 'PM'}
+            </span>
+            <span className="payments-modal__title-text">
+              {paymentMode === 'self' ? 'Pay My Share' : 'Record Member Payment'}
+            </span>
+          </span>
+        )}
+        className="payments-modal"
       >
-        {paymentMode === 'self' ? (
-          /* ── Admin Self-Payment Form ── */
-          <>
-            <div style={{
-              padding: '12px 16px', borderRadius: 10, marginBottom: 16,
-              background: 'rgba(91,141,239,0.1)', border: '1px solid rgba(91,141,239,0.25)',
-              fontSize: 13, color: '#8BAAEE', lineHeight: 1.6,
-            }}>
-              💡 Recording your own share contribution. This does not affect member balances —
-              it only tracks your personal share payments separately.
-              {adminShareSummary && shareRemaining > 0 && (
-                <div style={{ marginTop: 6, fontWeight: 700, color: '#5B8DEF' }}>
-                  Outstanding: Rs. {shareRemaining.toLocaleString()}
-                </div>
-              )}
+        <div className="payments-form">
+          <div className="payments-form__surface">
+            {paymentMode === 'member' && (
+              <div className="payments-form__section">
+                {!selectedMember && (
+                  <FloatingSelect
+                    label="Who Paid?"
+                    icon="user"
+                    required
+                    value={form.memberId}
+                    onChange={(memberId) => setForm((current) => ({ ...current, memberId }))}
+                    options={regularMembers.map((member, index) => ({
+                      value: member._id,
+                      label: member.name,
+                      status: getMemberPaymentStatus(member),
+                      color: COLORS[index % COLORS.length],
+                    }))}
+                    placeholder="Select member..."
+                    dropdownClassName="payments-floating-select__menu--members"
+                    renderSelected={(option) => (
+                      <span className="payments-floating-select__selected payments-floating-select__selected--member">
+                        <span className="payments-floating-select__option-main">
+                          <span className="payments-floating-select__avatar" style={{ '--option-accent': option.color }}>
+                            {option.label.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase()}
+                          </span>
+                          <span className="payments-floating-select__selected-copy payments-floating-select__selected-copy--member">
+                            <span className="payments-floating-select__selected-label">{option.label}</span>
+                          </span>
+                        </span>
+                        <span className={`payments-floating-select__status payments-floating-select__status--${option.status.tone} payments-floating-select__status--selected`}>
+                          {option.status.text}
+                        </span>
+                      </span>
+                    )}
+                    renderOption={(option) => (
+                      <span className="payments-floating-select__option-layout">
+                        <span className="payments-floating-select__option-main">
+                          <span className="payments-floating-select__avatar" style={{ '--option-accent': option.color }}>
+                            {option.label.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase()}
+                          </span>
+                          <span className="payments-floating-select__option-copy payments-floating-select__option-copy--member">
+                            <span className="payments-floating-select__option-label">{option.label}</span>
+                          </span>
+                        </span>
+                        <span className={`payments-floating-select__status payments-floating-select__status--${option.status.tone}`}>
+                          {option.status.text}
+                        </span>
+                      </span>
+                    )}
+                  />
+                )}
+
+                {selectedMember && (
+                  <div className={`payments-form__member-card ${selectedMember.balance < 0 ? 'payments-form__member-card--due' : 'payments-form__member-card--ok'}`}>
+                    <Avatar name={selectedMember.name} size={42} color={selectedMember.balance < 0 ? 'var(--red)' : 'var(--accent)'} />
+                    <div className="payments-form__member-card-content">
+                      <div className="payments-form__member-card-top">
+                        <div className="payments-form__member-card-name">{selectedMember.name}</div>
+                        <button
+                          type="button"
+                          className="payments-form__member-card-change"
+                          onClick={() => setForm((current) => ({ ...current, memberId: '' }))}
+                        >
+                          Change
+                        </button>
+                      </div>
+                      <div className="payments-form__member-card-copy">
+                        {selectedMember.balance < 0
+                          ? `${selectedMember.name} currently owes ${formatCurrency(selectedMember.balance)}`
+                          : selectedMember.balance === 0
+                            ? `${selectedMember.name} is already settled`
+                            : `${selectedMember.name} currently has ${formatCurrency(selectedMember.balance)} in credit`}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="payments-form__section">
+              <FloatingField label="Amount (Rs.)" icon="money" required filled={!!form.amount}>
+                <input
+                  className="payments-floating-field__input"
+                  type="number"
+                  value={form.amount}
+                  onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))}
+                  placeholder=" "
+                  min="1"
+                />
+              </FloatingField>
+
+              <div className="payments-form__split">
+                <FloatingSelect
+                  label="Payment Method"
+                  icon="method"
+                  value={form.paymentMethod}
+                  onChange={(paymentMethod) => setForm((current) => ({ ...current, paymentMethod }))}
+                  options={PAYMENT_METHOD_OPTIONS}
+                  placeholder="Choose method"
+                  renderSelected={(option) => (
+                    <span className="payments-floating-select__simple-value">{option.label}</span>
+                  )}
+                  renderOption={(option) => (
+                    <span className="payments-floating-select__simple-option">
+                      <span className="payments-floating-select__simple-label">{option.label}</span>
+                    </span>
+                  )}
+                />
+
+                <FloatingDatePicker
+                  label="Date"
+                  icon="calendar"
+                  value={form.date}
+                  onChange={(date) => setForm((current) => ({ ...current, date }))}
+                />
+              </div>
+
+              <FloatingField label="Note (Optional)" icon="note" filled={!!form.note}>
+                <textarea
+                  className="payments-floating-field__input payments-floating-field__input--textarea"
+                  value={form.note}
+                  onChange={(event) => setForm((current) => ({ ...current, note: event.target.value }))}
+                  placeholder=" "
+                  rows={3}
+                />
+              </FloatingField>
             </div>
 
-            <FormField label="Amount (Rs.)" required>
-              <input
-                type="number"
-                value={form.amount}
-                onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
-                placeholder={`e.g. ${shareRemaining || 500}`}
-                min="1"
-              />
-            </FormField>
-          </>
-        ) : (
-          /* ── Member Payment Form ── */
-          <>
-            <FormField label="Who paid?" required>
-              <select
-                value={form.memberId}
-                onChange={e => setForm(f => ({ ...f, memberId: e.target.value }))}
+            <div className="payments-form__actions">
+              <button type="button" className="payments-form__action payments-form__action--secondary" onClick={() => setShowModal(false)}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className={`payments-form__action payments-form__action--${paymentMode === 'self' ? 'accent' : 'primary'}`}
+                onClick={handleRecord}
+                disabled={saving}
               >
-                <option value="">Select member...</option>
-                {regularMembers.map(m => (
-                  <option key={m._id} value={m._id}>
-                    {m.name}
-                    {m.balance < 0
-                      ? ` — owes Rs. ${Math.abs(m.balance).toLocaleString()}`
-                      : m.balance === 0
-                        ? ' — settled'
-                        : ` — overpaid Rs. ${m.balance.toLocaleString()}`}
-                  </option>
-                ))}
-              </select>
-            </FormField>
-
-            {selectedMember && selectedMember.balance < 0 && (
-              <div style={{
-                padding: '10px 14px', borderRadius: 10, marginBottom: 4,
-                background: 'var(--red-soft)', border: '1px solid rgba(255,92,106,0.2)',
-                fontSize: 12, color: 'var(--red)', lineHeight: 1.5,
-              }}>
-                ⚠️ {selectedMember.name} owes Rs. {Math.abs(selectedMember.balance).toLocaleString()}
-              </div>
-            )}
-            {selectedMember && selectedMember.balance === 0 && (
-              <div style={{
-                padding: '10px 14px', borderRadius: 10, marginBottom: 4,
-                background: 'var(--accent-soft)', border: '1px solid var(--accent-glow)',
-                fontSize: 12, color: 'var(--accent)', lineHeight: 1.5,
-              }}>
-                ✅ {selectedMember.name} is already fully settled.
-              </div>
-            )}
-
-            <FormField label="Amount (Rs.)" required>
-              <input
-                type="number"
-                value={form.amount}
-                onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
-                placeholder="e.g. 1000"
-                min="1"
-              />
-            </FormField>
-          </>
-        )}
-
-        {/* Shared fields */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <FormField label="Payment Method">
-            <select
-              value={form.paymentMethod}
-              onChange={e => setForm(f => ({ ...f, paymentMethod: e.target.value }))}
-            >
-              <option value="cash">Cash</option>
-              <option value="bank_transfer">Bank Transfer</option>
-              <option value="online">Online</option>
-              <option value="other">Other</option>
-            </select>
-          </FormField>
-          <FormField label="Date">
-            <input
-              type="date"
-              value={form.date}
-              onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
-            />
-          </FormField>
-        </div>
-
-        <FormField label="Note (optional)">
-          <input
-            value={form.note}
-            onChange={e => setForm(f => ({ ...f, note: e.target.value }))}
-            placeholder="e.g. Rent share, grocery share"
-          />
-        </FormField>
-
-        <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
-          <button onClick={() => setShowModal(false)} style={{
-            flex: 1, padding: '11px', borderRadius: 10,
-            border: '1px solid var(--border)', background: 'var(--surface)',
-            color: 'var(--text-muted)', fontWeight: 700, cursor: 'pointer',
-          }}>Cancel</button>
-          <button onClick={handleRecord} disabled={saving} style={{
-            flex: 2, padding: '11px', borderRadius: 10, border: 'none',
-            background: paymentMode === 'self'
-              ? 'linear-gradient(135deg, #5B8DEF, #3B5FBF)'
-              : 'linear-gradient(135deg, #2ECC9A, #1A7A5C)',
-            color: paymentMode === 'self' ? '#fff' : '#000',
-            fontWeight: 800, cursor: saving ? 'not-allowed' : 'pointer',
-            opacity: saving ? 0.7 : 1,
-          }}>
-            {saving ? 'Recording...' : (paymentMode === 'self' ? 'Record My Share' : 'Record Payment')}
-          </button>
+                {saving ? 'Recording...' : paymentMode === 'self' ? 'Record My Share' : 'Record Payment'}
+              </button>
+            </div>
+          </div>
         </div>
       </Modal>
 

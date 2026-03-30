@@ -1,13 +1,47 @@
-// models/User.js - User/Member schema
+// models/User.js
 const mongoose = require('mongoose');
 const bcrypt   = require('bcryptjs');
+
+// Per-group membership subdocument
+const groupMembershipSchema = new mongoose.Schema({
+  groupId: {
+    type    : mongoose.Schema.Types.ObjectId,
+    ref     : 'Group',
+    required: true,
+  },
+  role: {
+    type   : String,
+    enum   : ['admin', 'member'],
+    default: 'member',
+  },
+  // For MEMBERS: negative = owes admin, positive = admin owes member, 0 = settled
+  // For ADMIN:   positive = total receivable from members
+  balance: {
+    type   : Number,
+    default: 0,
+  },
+  // ADMIN ONLY: Total of admin's OWN share across all expenses
+  adminShareOwed: {
+    type   : Number,
+    default: 0,
+  },
+  // ADMIN ONLY: Total amount admin has paid for his own share
+  adminSharePaid: {
+    type   : Number,
+    default: 0,
+  },
+  joinedAt: {
+    type   : Date,
+    default: Date.now,
+  },
+}, { _id: false });
 
 const userSchema = new mongoose.Schema(
   {
     name: {
-      type    : String,
-      required: [true, 'Name is required'],
-      trim    : true,
+      type     : String,
+      required : [true, 'Name is required'],
+      trim     : true,
       maxlength: [50, 'Name cannot exceed 50 characters'],
     },
     email: {
@@ -19,35 +53,18 @@ const userSchema = new mongoose.Schema(
       match    : [/^\S+@\S+\.\S+$/, 'Please enter a valid email'],
     },
     password: {
-      type    : String,
-      required: [true, 'Password is required'],
+      type     : String,
+      required : [true, 'Password is required'],
       minlength: [6, 'Password must be at least 6 characters'],
-      select  : false, // Never return password in queries
+      select   : false,
     },
-    role: {
-      type   : String,
-      enum   : ['admin', 'member'],
-      default: 'member',
+    // All groups this user belongs to (with per-group balance & role)
+    groups: {
+      type   : [groupMembershipSchema],
+      default: [],
     },
-    // For MEMBERS: negative = owes admin, positive = admin owes member, 0 = settled
-    // For ADMIN:   positive = total receivable from members, negative = admin overpaid
-    balance: {
-      type   : Number,
-      default: 0,
-    },
-    // ADMIN ONLY: Total of admin's OWN share across all expenses he was included in.
-    // This is separate from balance (which tracks member receivables only).
-    adminShareOwed: {
-      type   : Number,
-      default: 0,
-    },
-    // ADMIN ONLY: Total amount admin has actually paid for his own share.
-    // Set via "Record My Share" payments with isAdminSelfPayment = true.
-    adminSharePaid: {
-      type   : Number,
-      default: 0,
-    },
-    groupId: {
+    // Currently active group (for UI switching)
+    activeGroupId: {
       type   : mongoose.Schema.Types.ObjectId,
       ref    : 'Group',
       default: null,
@@ -68,13 +85,30 @@ userSchema.pre('save', async function (next) {
   next();
 });
 
-userSchema.index({ groupId: 1, role: 1 });
-userSchema.index({ email: 1 }, { unique: true });
-userSchema.index({ groupId: 1, balance: 1 });
-
-// Compare password method
+// Compare password
 userSchema.methods.comparePassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
+
+// Helper: get membership object for a specific group
+userSchema.methods.getMembership = function (groupId) {
+  return this.groups.find(g => g.groupId.toString() === groupId.toString());
+};
+
+// Helper: get role in a specific group
+userSchema.methods.getRoleInGroup = function (groupId) {
+  const membership = this.getMembership(groupId);
+  return membership ? membership.role : null;
+};
+
+// Helper: get balance in a specific group
+userSchema.methods.getBalanceInGroup = function (groupId) {
+  const membership = this.getMembership(groupId);
+  return membership ? membership.balance : 0;
+};
+
+// email already has unique:true in schema definition — no duplicate index needed
+userSchema.index({ 'groups.groupId': 1 });
+userSchema.index({ activeGroupId: 1 });
 
 module.exports = mongoose.model('User', userSchema);

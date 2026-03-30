@@ -1,159 +1,183 @@
-// pages/HistoryPage.js - Full transaction history with server-side filtering
+// pages/HistoryPage.js
 import React, { useState, useEffect, useCallback } from 'react';
 import { balanceAPI } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import Spinner from '../components/Spinner';
 import EmptyState from '../components/EmptyState';
 import Pagination from '../components/Pagination';
+import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 
 const FILTERS = [
-  { key: 'all',     label: 'All' },
+  { key: 'all', label: 'All' },
   { key: 'expense', label: 'Expenses' },
   { key: 'payment', label: 'Member Payments' },
-  { key: 'self',    label: 'My Share Payments' },
+  { key: 'self', label: 'My Share' },
 ];
 
-const HistoryPage = () => {
-  const [history, setHistory]       = useState([]);
-  const [loading, setLoading]       = useState(true);
-  const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0 });
-  const [filter, setFilter]         = useState('all');
+const NoGroup = () => (
+  <section className="history-empty-group">
+    <div className="history-empty-group__icon">LOG</div>
+    <h3 className="history-empty-group__title">No Active Group</h3>
+    <p className="history-empty-group__text">Select or join a group to view transaction history.</p>
+    <Link to="/groups" style={{ textDecoration: 'none' }}>
+      <button type="button" className="history-empty-group__cta">
+        Browse Groups
+      </button>
+    </Link>
+  </section>
+);
 
-  // ✅ FIXED: Filter is passed to server — no more client-side filtering after pagination
+const HistoryPage = () => {
+  const { activeGroupId } = useAuth();
+  const [history, setHistory] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0 });
+  const [filter, setFilter] = useState('all');
+
   const load = useCallback(async (page = 1) => {
+    if (!activeGroupId) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
-      const res = await balanceAPI.getHistory({ page, limit: 15, type: filter });
-      setHistory(res.data.history);
-      setPagination(res.data.pagination);
+      const res = await balanceAPI.getHistory(activeGroupId, { page, limit: 15, type: filter });
+      setHistory(res.data.history || []);
+      setPagination(res.data.pagination || { page: 1, pages: 1, total: 0 });
     } catch {
       toast.error('Failed to load history');
     } finally {
       setLoading(false);
     }
-  }, [filter]);
+  }, [activeGroupId, filter]);
 
-  useEffect(() => { load(1); }, [load]);
+  useEffect(() => {
+    load(1);
+  }, [load]);
+
+  if (!activeGroupId) return <NoGroup />;
 
   return (
-    <div>
-      <div style={{ marginBottom: 24 }}>
-        <h2 style={{
-          fontFamily: "'Syne', sans-serif", fontWeight: 900,
-          fontSize: 26, color: 'var(--text)', margin: 0,
-        }}>Transaction History</h2>
-        <p style={{ color: 'var(--text-muted)', margin: '4px 0 0', fontSize: 13 }}>
-          Complete record · Descriptions auto-clear after 21 days · {pagination.total} transactions
-        </p>
-      </div>
+    <div className="history-page">
+      <section className="history-hero">
+        <div className="history-hero__left">
+          <span className="history-hero__eyebrow">AUDIT TRAIL</span>
+          <h2 className="history-hero__title">Transaction History</h2>
+          <p className="history-hero__subtitle">
+            Full ledger for your group. Descriptions auto-clear after 21 days.
+          </p>
+          <div className="history-hero__chips">
+            <span className="history-chip">{pagination.total} total</span>
+            <span className="history-chip history-chip--soft">Page {pagination.page} of {pagination.pages}</span>
+          </div>
+        </div>
+        <div className="history-hero__right">
+          <div className="history-hero__stat-label">Visible Entries</div>
+          <div className="history-hero__stat-value">{history.length}</div>
+          <div className="history-hero__stat-meta">Current page window</div>
+        </div>
+      </section>
 
-      {/* Filter tabs */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
-        {FILTERS.map(f => (
-          <button key={f.key} onClick={() => setFilter(f.key)} style={{
-            padding: '7px 16px', borderRadius: 99, fontSize: 13, fontWeight: 600,
-            cursor: 'pointer', transition: 'all .15s',
-            background: filter === f.key ? 'var(--accent-soft)' : 'var(--surface)',
-            color     : filter === f.key ? 'var(--accent)' : 'var(--text-muted)',
-            border    : `1px solid ${filter === f.key ? 'var(--accent-glow)' : 'var(--border)'}`,
-          }}>{f.label}</button>
+      <section className="history-filter">
+        {FILTERS.map(item => (
+          <button
+            key={item.key}
+            type="button"
+            className={`history-filter__tab ${filter === item.key ? 'history-filter__tab--active' : ''}`}
+            onClick={() => setFilter(item.key)}
+          >
+            {item.label}
+          </button>
         ))}
-      </div>
+      </section>
 
-      {loading ? <Spinner /> : history.length === 0 ? (
-        <EmptyState
-          icon="📜"
-          title="No transactions found"
-          message="Transactions will appear here once you start adding expenses and payments."
-        />
+      {loading ? (
+        <Spinner message="Loading history..." />
+      ) : history.length === 0 ? (
+        <div className="history-empty">
+          <EmptyState
+            icon="history"
+            title="No transactions found"
+            message="Transactions will appear here once you start adding expenses and payments."
+          />
+        </div>
       ) : (
         <>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {history.map((t) => {
-              const isAdminSelf  = t.isAdminSelfPayment === true;
-              const isPayment    = t.type === 'payment';
-              const accentColor  = isAdminSelf ? '#5B8DEF' : isPayment ? 'var(--accent)' : 'var(--red)';
-              const borderColor  = isAdminSelf
-                ? 'rgba(91,141,239,0.5)'
-                : isPayment ? 'var(--accent)' : 'var(--red)';
+          <section className="history-list">
+            {history.map(item => {
+              const isSelfShare = item.isAdminSelfPayment === true;
+              const isPayment = item.type === 'payment';
+
+              const tone = isSelfShare ? 'self' : isPayment ? 'payment' : 'expense';
+              const amountPrefix = isPayment ? '+' : '-';
+              const toneLabel = isSelfShare ? 'My share' : isPayment ? 'Payment' : 'Expense';
+              const badgeLabel = isSelfShare ? 'ME' : isPayment ? 'IN' : 'EX';
+              const formattedDate = format(new Date(item.date), 'MMM d, yyyy');
+              const splitLabel = item.type === 'expense'
+                ? (item.splitMode === 'percentage' ? 'Percentage split' : 'Equal split')
+                : null;
+              const sourceLabel = item.member && !item.dividedAmong ? `From ${item.member.name}` : null;
+              const hasTags = Boolean(item.category || item.paymentMethod || splitLabel);
+              const hasNote = Boolean(item.description || sourceLabel);
 
               return (
-                <div key={t._id} style={{
-                  background: 'var(--surface)', border: '1px solid var(--border)',
-                  borderRadius: 14, padding: '14px 20px',
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  borderLeft: `3px solid ${borderColor}`,
-                  transition: 'transform .15s',
-                }}
-                  onMouseEnter={e => e.currentTarget.style.transform = 'translateX(3px)'}
-                  onMouseLeave={e => e.currentTarget.style.transform = 'none'}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 16, flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 22, flexShrink: 0 }}>
-                      {isAdminSelf ? '👤' : isPayment ? '💵' : '🧾'}
-                    </div>
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: 14, marginBottom: 3 }}>
-                        {t.title}
-                      </div>
-                      <div style={{
-                        fontSize: 12, marginBottom: 2,
-                        color: t.description?.includes('cleared') ? 'var(--yellow)' : 'var(--text-muted)',
-                      }}>
-                        {t.description && <span style={{ marginRight: 8 }}>{t.description}</span>}
-                        {t.dividedAmong && <span>Split {t.dividedAmong.length} ways</span>}
-                        {t.member && !t.dividedAmong && <span>From {t.member.name}</span>}
-                      </div>
-                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                        {t.category && (
-                          <span style={{
-                            fontSize: 10, padding: '2px 8px', borderRadius: 99,
-                            background: 'var(--surface-alt)', color: 'var(--text-dim)',
-                            textTransform: 'capitalize',
-                          }}>{t.category}</span>
+                <article key={item._id} className={`history-card history-card--${tone}`}>
+                  <div className="history-card__rail" />
+                  <div className="history-card__inner">
+                    <div className="history-card__top">
+                      <div className={`history-card__badge history-card__badge--${tone}`}>{badgeLabel}</div>
+                      <div className="history-card__main">
+                        <div className="history-card__header">
+                          <span className={`history-card__eyebrow history-card__eyebrow--${tone}`}>{toneLabel}</span>
+                          <h3 className="history-card__title">{item.title}</h3>
+                        </div>
+                        {hasNote && (
+                          <div className="history-card__note">
+                            {item.description && (
+                              <div className="history-card__description">{item.description}</div>
+                            )}
+                            {sourceLabel && (
+                              <div className="history-card__note-meta">{sourceLabel}</div>
+                            )}
+                          </div>
                         )}
-                        {t.paymentMethod && (
-                          <span style={{
-                            fontSize: 10, padding: '2px 8px', borderRadius: 99,
-                            background: isAdminSelf ? 'rgba(91,141,239,0.1)' : 'var(--accent-soft)',
-                            color: isAdminSelf ? '#5B8DEF' : 'var(--accent)',
-                            textTransform: 'capitalize',
-                          }}>
-                            {t.paymentMethod.replace('_', ' ')}
-                          </span>
+                        {!hasNote && (
+                          <div className="history-card__note history-card__note--empty" />
                         )}
-                        {isAdminSelf && (
-                          <span style={{
-                            fontSize: 10, padding: '2px 8px', borderRadius: 99,
-                            background: 'rgba(91,141,239,0.1)', color: '#5B8DEF',
-                          }}>My Share</span>
+                      </div>
+                      <div className="history-card__side">
+                        <div className={`history-card__amount-box history-card__amount-box--${tone}`}>
+                          <div className={`history-card__amount history-card__amount--${tone}`}>
+                            {amountPrefix}Rs. {Number(item.amount || 0).toLocaleString()}
+                          </div>
+                          <div className="history-card__date">{formattedDate}</div>
+                        </div>
+                        {hasTags && (
+                          <div className="history-card__side-tags">
+                            {splitLabel && (
+                              <span className="history-tag history-tag--warn">{splitLabel}</span>
+                            )}
+                            {item.paymentMethod && (
+                              <span className={`history-tag history-tag--${tone}`}>
+                                {item.paymentMethod.replace('_', ' ')}
+                              </span>
+                            )}
+                            {item.category && (
+                              <span className="history-tag history-tag--muted">{item.category}</span>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>
                   </div>
-                  <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 16 }}>
-                    <div style={{ fontWeight: 800, fontSize: 16, color: accentColor }}>
-                      {isPayment ? '+' : '-'}Rs. {t.amount?.toLocaleString()}
-                    </div>
-                    {t.splitAmount && t.type === 'expense' && (
-                      <div style={{ fontSize: 11, color: 'var(--yellow)', marginTop: 2 }}>
-                        Rs. {t.splitAmount}/person
-                      </div>
-                    )}
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                      {format(new Date(t.date), 'MMM d, yyyy')}
-                    </div>
-                  </div>
-                </div>
+                </article>
               );
             })}
-          </div>
-          <Pagination
-            current={pagination.page}
-            total={pagination.pages}
-            onChange={load}
-          />
+          </section>
+
+          <Pagination current={pagination.page} total={pagination.pages} onChange={load} />
         </>
       )}
     </div>

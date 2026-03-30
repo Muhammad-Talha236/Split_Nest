@@ -1,69 +1,89 @@
-// models/Expense.js - Expense schema with auto-clear logic
+// models/Expense.js
 const mongoose = require('mongoose');
+
+const splitDetailSchema = new mongoose.Schema(
+  {
+    member: {
+      type    : mongoose.Schema.Types.ObjectId,
+      ref     : 'User',
+      required: true,
+    },
+    percentage: {
+      type   : Number,
+      default: null,
+    },
+    amount: {
+      type    : Number,
+      required: true,
+    },
+  },
+  { _id: false }
+);
 
 const expenseSchema = new mongoose.Schema(
   {
     title: {
-      type: String,
-      required: [true, 'Expense title is required'],
-      trim: true,
+      type     : String,
+      required : [true, 'Expense title is required'],
+      trim     : true,
       maxlength: [100, 'Title cannot exceed 100 characters'],
     },
-    // Description auto-clears after 21 days (kept as empty string after clearing)
     description: {
-      type: String,
-      default: '',
+      type     : String,
+      default  : '',
       maxlength: [500, 'Description cannot exceed 500 characters'],
     },
-    // Flag to track if description has been auto-cleared
     descriptionCleared: {
-      type: Boolean,
+      type   : Boolean,
       default: false,
     },
     amount: {
-      type: Number,
+      type    : Number,
       required: [true, 'Amount is required'],
-      min: [1, 'Amount must be greater than 0'],
+      min     : [1, 'Amount must be greater than 0'],
     },
-    // Amount per person after split
     splitAmount: {
       type: Number,
     },
+    splitMode: {
+      type   : String,
+      enum   : ['equal', 'percentage'],
+      default: 'equal',
+    },
+    splitDetails: {
+      type   : [splitDetailSchema],
+      default: [],
+    },
     paidBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
+      type    : mongoose.Schema.Types.ObjectId,
+      ref     : 'User',
       required: true,
     },
     dividedAmong: [
       {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
+        ref : 'User',
       },
     ],
     groupId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Group',
+      type    : mongoose.Schema.Types.ObjectId,
+      ref     : 'Group',
       required: true,
     },
     date: {
-      type: Date,
+      type   : Date,
       default: Date.now,
     },
     category: {
-      type: String,
-      enum: ['grocery', 'electricity', 'gas', 'internet', 'water', 'rent', 'other'],
+      type   : String,
+      enum   : ['grocery', 'electricity', 'gas', 'internet', 'water', 'rent', 'other'],
       default: 'other',
     },
   },
   { timestamps: true }
 );
 
-// Calculate split amount before saving
-expenseSchema.pre('save', function (next) {
-  if (this.dividedAmong && this.dividedAmong.length > 0) {
-    this.splitAmount = parseFloat((this.amount / this.dividedAmong.length).toFixed(2));
-  }
-  next();
-});
+expenseSchema.index({ groupId: 1, date: -1 });
+expenseSchema.index({ groupId: 1, category: 1 });
 
 module.exports = mongoose.model('Expense', expenseSchema);

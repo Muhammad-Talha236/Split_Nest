@@ -1,403 +1,429 @@
-// pages/MembersPage.js - Member management (Admin only)
-import React, { useState, useEffect } from 'react';
-import { groupAPI, authAPI } from '../services/api';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
+import { groupAPI } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import Modal, { ConfirmModal } from '../components/Modal';
 import FormField from '../components/FormField';
 import Spinner from '../components/Spinner';
 import { Avatar } from '../components/Layout';
-import toast from 'react-hot-toast';
+import { AVATAR_COLORS, alpha } from '../theme';
 
-const COLORS = ['#2ECC9A', '#5B8DEF', '#FFB547', '#E879F9', '#FB923C', '#34D399'];
+const COLORS = AVATAR_COLORS;
+
+const HeaderButton = ({ children, variant = 'secondary', ...props }) => (
+  <button
+    {...props}
+    className={`members-btn members-btn--${variant}`}
+    type={props.type || 'button'}
+  >
+    {children}
+  </button>
+);
+
+const StatCard = ({ label, value, hint, tone = 'default' }) => (
+  <div className={`members-stat members-stat--${tone}`}>
+    <div className="members-stat__label">{label}</div>
+    <div className="members-stat__value">{value}</div>
+    {hint && <div className="members-stat__hint">{hint}</div>}
+  </div>
+);
+
+const NoGroup = () => (
+  <div className="members-empty">
+    <div className="members-empty__glow" />
+    <div className="members-empty__icon">TEAM</div>
+    <h3 className="members-empty__title">No Active Group</h3>
+    <p className="members-empty__text">Select or join a group to view members and manage roles.</p>
+    <Link to="/groups" style={{ textDecoration: 'none' }}>
+      <button className="members-btn members-btn--primary" type="button">
+        Browse Groups -&gt;
+      </button>
+    </Link>
+  </div>
+);
 
 const MembersPage = () => {
-  const [group, setGroup]       = useState(null);
-  const [loading, setLoading]   = useState(true);
-  const [showAdd, setShowAdd]   = useState(false);
+  const { user, activeGroupId, isAdmin, switchGroup } = useAuth();
+  const navigate = useNavigate();
+
+  const [group, setGroup] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [removeId, setRemoveId] = useState(null);
   const [removing, setRemoving] = useState(false);
-  const [saving, setSaving]     = useState(false);
-  const [form, setForm]         = useState({ name: '', email: '', password: '' });
-
-  // Invite link state
-  const [inviteLink, setInviteLink]       = useState('');
-  const [inviteExpiry, setInviteExpiry]   = useState(null);
-  const [generatingLink, setGeneratingLink] = useState(false);
-  const [showInviteModal, setShowInviteModal] = useState(false);
-  const [copied, setCopied]               = useState(false);
+  const [showTransfer, setShowTransfer] = useState(false);
+  const [newAdminId, setNewAdminId] = useState('');
+  const [transferring, setTransferring] = useState(false);
+  const [showLeave, setShowLeave] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  const [leaveAck, setLeaveAck] = useState(false);
+  const [leaveType, setLeaveType] = useState('');
+  const [leaveError, setLeaveError] = useState('');
+  const [showDeleteGroup, setShowDeleteGroup] = useState(false);
+  const [deletingGroup, setDeletingGroup] = useState(false);
+  const [showEditGroup, setShowEditGroup] = useState(false);
+  const [editForm, setEditForm] = useState({ name: '', hostelName: '', city: '', university: '', description: '' });
+  const [saving, setSaving] = useState(false);
 
   const loadGroup = async () => {
+    if (!activeGroupId) {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
-      const res = await groupAPI.getGroup();
+      const res = await groupAPI.getGroup(activeGroupId);
       setGroup(res.data.group);
-    } catch { toast.error('Failed to load group'); }
-    finally { setLoading(false); }
-  };
-
-  useEffect(() => { loadGroup(); }, []);
-
-  // ── Generate Invite Link ──────────────────────────────────────────────────
-  const handleGenerateInvite = async () => {
-    setGeneratingLink(true);
-    try {
-      const res = await authAPI.generateInvite();
-      setInviteLink(res.data.link);
-      setInviteExpiry(res.data.expiresAt);
-      setShowInviteModal(true);
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to generate invite link');
-    } finally {
-      setGeneratingLink(false);
-    }
-  };
-
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(inviteLink);
-      setCopied(true);
-      toast.success('Link copied!');
-      setTimeout(() => setCopied(false), 3000);
+      setEditForm({
+        name: res.data.group.name || '',
+        hostelName: res.data.group.hostelName || '',
+        city: res.data.group.city || '',
+        university: res.data.group.university || '',
+        description: res.data.group.description || '',
+      });
     } catch {
-      // Fallback for older browsers
-      const el = document.createElement('textarea');
-      el.value = inviteLink;
-      document.body.appendChild(el);
-      el.select();
-      document.execCommand('copy');
-      document.body.removeChild(el);
-      setCopied(true);
-      toast.success('Link copied!');
-      setTimeout(() => setCopied(false), 3000);
+      toast.error('Failed to load group');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleWhatsApp = () => {
-    const msg = encodeURIComponent(
-      `Hey! Join our KhataNest hostel expense group.\n\nClick this link to create your account:\n${inviteLink}\n\n(Link valid for 7 days)`
-    );
-    window.open(`https://wa.me/?text=${msg}`, '_blank');
-  };
-
-  // ── Add Member (manual — kept as backup) ─────────────────────────────────
-  const handleAdd = async () => {
-    if (!form.name || !form.email || !form.password) return toast.error('All fields required');
-    setSaving(true);
-    try {
-      await groupAPI.addMember(form);
-      toast.success(`${form.name} added to the group!`);
-      setShowAdd(false);
-      setForm({ name: '', email: '', password: '' });
-      loadGroup();
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to add member');
-    } finally { setSaving(false); }
-  };
+  useEffect(() => {
+    loadGroup();
+  }, [activeGroupId]);
 
   const handleRemove = async () => {
     setRemoving(true);
     try {
-      await groupAPI.removeMember(removeId);
+      await groupAPI.removeMember(activeGroupId, removeId);
       toast.success('Member removed');
       setRemoveId(null);
       loadGroup();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Cannot remove member');
-    } finally { setRemoving(false); }
+    } finally {
+      setRemoving(false);
+    }
   };
 
-  const getBalanceLabel = (m) => {
-    if (m.role === 'admin') {
-      if (m.balance > 0) return 'Members owe you';
-      if (m.balance < 0) return 'You overspent';
+  const handleTransferAdmin = async () => {
+    if (!newAdminId) return toast.error('Select a member to transfer admin to');
+
+    setTransferring(true);
+    try {
+      await groupAPI.transferAdmin(activeGroupId, newAdminId);
+      toast.success('Admin role transferred');
+      setShowTransfer(false);
+      setNewAdminId('');
+      loadGroup();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Transfer failed');
+    } finally {
+      setTransferring(false);
+    }
+  };
+
+  const handleLeave = async () => {
+    setLeaving(true);
+    try {
+      await groupAPI.leaveGroup(activeGroupId);
+      toast.success('You have left the group');
+      setShowLeave(false);
+      setLeaveAck(false);
+      setLeaveType('');
+      setLeaveError('');
+      await switchGroup(null);
+      navigate('/groups');
+    } catch (err) {
+      setLeaveError(err.response?.data?.message || 'Cannot leave group');
+    } finally {
+      setLeaving(false);
+    }
+  };
+
+  const handleUpdateGroup = async () => {
+    setSaving(true);
+    try {
+      await groupAPI.updateGroup(activeGroupId, editForm);
+      toast.success('Group updated');
+      setShowEditGroup(false);
+      loadGroup();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteGroup = async () => {
+    setDeletingGroup(true);
+    try {
+      await groupAPI.deleteGroup(activeGroupId);
+      toast.success('Group deleted');
+      setShowDeleteGroup(false);
+      await switchGroup(null);
+      navigate('/groups');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to delete group');
+    } finally {
+      setDeletingGroup(false);
+    }
+  };
+
+  const getBalanceLabel = (member) => {
+    if (member.role === 'admin') {
+      if (member.balance > 0) return 'Members owe you';
+      if (member.balance < 0) return 'You overspent';
       return 'All settled';
     }
-    if (m.balance < 0) return 'Owes admin';
-    if (m.balance > 0) return 'Admin owes member';
+
+    if (member.balance < 0) return 'Owes admin';
+    if (member.balance > 0) return 'Admin owes member';
     return 'Settled';
   };
 
+  const members = group?.members || [];
+  const visibleMembers = members.filter((member) => member.role !== 'admin');
+  const nonAdminMembers = visibleMembers;
+
+  const stats = useMemo(() => {
+    const admins = members.filter((member) => member.role === 'admin').length;
+    const settled = members.filter((member) => Number(member.balance || 0) === 0).length;
+    const activeBalances = members.filter((member) => Number(member.balance || 0) !== 0).length;
+    const you = members.find((member) => member._id === user?._id);
+
+    return {
+      total: members.length,
+      admins,
+      settled,
+      activeBalances,
+      yourBalance: you?.balance || 0,
+    };
+  }, [members, user?._id]);
+
+  if (!activeGroupId) return <NoGroup />;
   if (loading) return <Spinner message="Loading members..." />;
 
   return (
-    <div>
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div style={{
-        display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
-        marginBottom: 28, flexWrap: 'wrap', gap: 12,
-      }}>
-        <div>
-          <h2 style={{
-            fontFamily: "'Syne', sans-serif", fontWeight: 900,
-            fontSize: 26, color: 'var(--text)', margin: 0,
-          }}>Members</h2>
-          <p style={{ color: 'var(--text-muted)', fontSize: 13, margin: '4px 0 0' }}>
-            Group: <span style={{ color: 'var(--accent)', fontWeight: 700 }}>{group?.name}</span>
-            {' · '}{group?.members?.length} members
-          </p>
+    <div className="members-page">
+      <section className="members-hero">
+        <div className="members-hero__bg members-hero__bg--left" />
+        <div className="members-hero__bg members-hero__bg--right" />
+
+        <div className="members-hero__content">
+          <div className="members-hero__copy">
+            <div className="members-hero__eyebrow">Team Directory</div>
+            <h2 className="members-hero__title">Members</h2>
+
+            <div className="members-hero__meta">
+              <span className="members-chip members-chip--accent">{group?.name}</span>
+              <span className="members-chip">{visibleMembers.length} members</span>
+              {group?.hostelName && <span className="members-chip">{group.hostelName}</span>}
+              {group?.city && <span className="members-chip">{group.city}</span>}
+              {group?.university && <span className="members-chip">{group.university}</span>}
+            </div>
+          </div>
+
+          <div className="members-hero__actions">
+            {isAdmin ? (
+              <>
+                <HeaderButton onClick={() => setShowEditGroup(true)}>Edit Group</HeaderButton>
+                <Link to="/group-requests" style={{ textDecoration: 'none' }}>
+                  <button className="members-btn members-btn--primary" type="button">
+                    Join Requests
+                  </button>
+                </Link>
+                <HeaderButton variant="danger" onClick={() => setShowDeleteGroup(true)}>Delete Group</HeaderButton>
+              </>
+            ) : (
+              <HeaderButton variant="danger" onClick={() => setShowLeave(true)}>Leave Group</HeaderButton>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section className="members-stats-grid">
+        <StatCard label="Total Members" value={stats.total} hint="Everyone currently in this group" />
+        <StatCard label="Admins" value={stats.admins} hint="People with full control" tone="info" />
+        <StatCard label="Open Balances" value={stats.activeBalances} hint="Members needing attention" tone="warning" />
+        <StatCard
+          label="Your Balance"
+          value={`Rs. ${stats.yourBalance.toLocaleString()}`}
+          hint={stats.yourBalance >= 0 ? 'Positive or settled position' : 'You currently owe'}
+          tone={stats.yourBalance >= 0 ? 'positive' : 'danger'}
+        />
+      </section>
+
+      <section className="members-directory">
+        <div className="members-directory__header">
+          <div>
+            <h3 className="members-section-title">Group Members</h3>
+          </div>
+          <div className="members-directory__hint">{stats.settled} settled</div>
         </div>
 
-        {/* Action Buttons */}
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          {/* ✅ Primary: Invite via Link */}
-          <button
-            onClick={handleGenerateInvite}
-            disabled={generatingLink}
-            style={{
-              background: 'linear-gradient(135deg, #2ECC9A, #1A7A5C)',
-              border: 'none', borderRadius: 10,
-              padding: '10px 20px', color: '#000', fontWeight: 800,
-              cursor: generatingLink ? 'not-allowed' : 'pointer',
-              fontSize: 14, opacity: generatingLink ? 0.7 : 1,
-              display: 'flex', alignItems: 'center', gap: 6,
-            }}
-          >
-            <span>🔗</span>
-            <span>{generatingLink ? 'Generating...' : 'Invite via Link'}</span>
-          </button>
+        <div
+          className={`members-grid ${
+            visibleMembers.length === 1
+              ? 'members-grid--single'
+              : visibleMembers.length === 2
+                ? 'members-grid--double'
+                : 'members-grid--scroll'
+          }`}
+        >
+          {visibleMembers.map((member, index) => {
+            const color = COLORS[index % COLORS.length];
+            const isCurrentUser = member._id?.toString() === user?._id?.toString();
+            const showEmail = isAdmin || isCurrentUser;
+            const canManage = isAdmin && member.role !== 'admin';
+            const canLeave = isCurrentUser;
+            const showActions = canManage || canLeave;
+            const isPositive = member.balance > 0;
+            const isNegative = member.balance < 0;
+            const balanceTone = isPositive ? 'positive' : isNegative ? 'negative' : 'neutral';
 
-          {/* Secondary: Manual add (backup) */}
-          <button
-            onClick={() => setShowAdd(true)}
-            style={{
-              background: 'var(--surface)', border: '1px solid var(--border)',
-              borderRadius: 10, padding: '10px 16px',
-              color: 'var(--text-muted)', fontWeight: 700,
-              cursor: 'pointer', fontSize: 13,
-            }}
-          >
-            + Add Manually
-          </button>
-        </div>
-      </div>
-
-      {/* ── Info Banner ────────────────────────────────────────────────────── */}
-      <div style={{
-        background: 'var(--accent-soft)', border: '1px solid var(--accent-glow)',
-        borderRadius: 12, padding: '12px 18px', marginBottom: 24,
-        display: 'flex', alignItems: 'center', gap: 12,
-      }}>
-        <span style={{ fontSize: 20 }}>💡</span>
-        <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5 }}>
-          <strong style={{ color: 'var(--accent)' }}>Invite via Link</strong> — member apni khud ki email aur password choose kare.
-          Link WhatsApp pe share karo, 7 din valid rahega.
-        </div>
-      </div>
-
-      {/* ── Member Cards Grid ── */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
-        gap: 16,
-      }}>
-        {group?.members?.map((m, i) => {
-          const color         = COLORS[i % COLORS.length];
-          const isPositive    = m.balance >= 0;
-          const balanceColor  = isPositive ? 'var(--accent)' : 'var(--red)';
-          const balanceBg     = isPositive ? 'var(--accent-soft)' : 'var(--red-soft)';
-          const balanceBorder = isPositive ? 'var(--accent-glow)' : 'rgba(255,92,106,0.25)';
-
-          return (
-            <div
-              key={m._id}
-              style={{
-                background: `linear-gradient(135deg, var(--surface), ${color}0A)`,
-                border: `1px solid ${color}22`,
-                borderRadius: 16, padding: 20,
-                minWidth: 0, overflow: 'hidden',
-                transition: 'transform .2s, box-shadow .2s',
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.transform = 'translateY(-4px)';
-                e.currentTarget.style.boxShadow = `0 16px 40px ${color}20`;
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.transform = 'none';
-                e.currentTarget.style.boxShadow = 'none';
-              }}
-            >
-              {/* Avatar + Role Badge */}
-              <div style={{
-                display: 'flex', justifyContent: 'space-between',
-                alignItems: 'flex-start', marginBottom: 16, gap: 8,
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
-                  <div style={{ flexShrink: 0 }}>
-                    <Avatar name={m.name} size={40} color={color} />
+            return (
+              <article
+                key={member._id}
+                className={`member-card ${showActions ? 'member-card--with-actions' : ''}`}
+                style={{
+                  '--member-accent': color,
+                  '--member-accent-soft': alpha(color, 18),
+                  '--member-accent-glow': alpha(color, 28),
+                  '--member-accent-wash': alpha(color, 7),
+                }}
+              >
+                <div className="member-card__top">
+                  <div className="member-card__identity">
+                    <Avatar name={member.name} size={48} color={color} />
+                    <div className="member-card__identity-copy">
+                      <h4 className="member-card__name">{member.name}</h4>
+                      <div className="member-card__email">
+                        {showEmail ? member.email : 'Member account'}
+                      </div>
+                    </div>
                   </div>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{
-                      fontWeight: 800, color: 'var(--text)', fontSize: 14,
-                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                    }}>{m.name}</div>
-                    <div style={{
-                      fontSize: 11, color: 'var(--text-muted)', marginTop: 2,
-                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                    }}>{m.email}</div>
+
+                  <div className="member-card__tag-rail">
+                    {isCurrentUser && <span className="member-tag member-tag--self">You</span>}
                   </div>
                 </div>
-                <span style={{
-                  flexShrink: 0,
-                  background: m.role === 'admin' ? 'var(--accent-soft)' : 'var(--blue-soft)',
-                  color: m.role === 'admin' ? 'var(--accent)' : 'var(--blue)',
-                  padding: '3px 8px', borderRadius: 99,
-                  fontSize: 10, fontWeight: 800, letterSpacing: 0.5, whiteSpace: 'nowrap',
-                }}>
-                  {m.role === 'admin' ? '👑 ADMIN' : '👤 MEMBER'}
-                </span>
-              </div>
 
-              {/* Balance Card */}
-              <div style={{
-                padding: '10px 14px', borderRadius: 10,
-                background: balanceBg, border: `1px solid ${balanceBorder}`,
-                marginBottom: 14,
-                display: 'flex', flexDirection: 'column', gap: 4,
-              }}>
-                <span style={{
-                  fontSize: 11, color: 'var(--text-muted)', fontWeight: 600,
-                  textTransform: 'uppercase', letterSpacing: 0.5,
-                }}>
-                  {getBalanceLabel(m)}
-                </span>
-                <span style={{
-                  fontFamily: "'Syne', sans-serif", fontWeight: 800,
-                  fontSize: 'clamp(15px, 4vw, 20px)',
-                  color: balanceColor, wordBreak: 'break-word', lineHeight: 1.2,
-                }}>
-                  {m.balance >= 0 ? '+' : ''}Rs.{' '}{m.balance?.toLocaleString()}
-                </span>
-              </div>
+                <div className={`member-card__balance member-card__balance--${balanceTone}`}>
+                  <div className="member-card__balance-label">{getBalanceLabel(member)}</div>
+                  <div className="member-card__balance-value">
+                    {member.balance >= 0 ? '+' : ''}Rs. {Number(member.balance || 0).toLocaleString()}
+                  </div>
+                </div>
 
-              {/* Remove Button */}
-              {m.role !== 'admin' && (
-                <button
-                  onClick={() => setRemoveId(m._id)}
-                  style={{
-                    width: '100%', padding: '8px', borderRadius: 8,
-                    background: 'var(--red-soft)',
-                    border: '1px solid rgba(255,92,106,0.3)',
-                    color: 'var(--red)', fontWeight: 700,
-                    cursor: 'pointer', fontSize: 12,
-                  }}
-                >
-                  Remove from Group
-                </button>
-              )}
-            </div>
-          );
-        })}
-      </div>
+                <div className="member-card__meta">
+                  <div className="member-card__meta-item">
+                    <span className="member-card__meta-label">Status</span>
+                    <span className="member-card__meta-value">
+                      {member.balance === 0 ? 'Settled' : member.balance > 0 ? 'In credit' : 'Pending'}
+                    </span>
+                  </div>
+                  <div className="member-card__meta-item">
+                    <span className="member-card__meta-label">Access</span>
+                    <span className="member-card__meta-value">{isCurrentUser ? 'Your profile' : 'Standard'}</span>
+                  </div>
+                </div>
 
-      {/* ── Invite Link Modal ─────────────────────────────────────────────── */}
-      <Modal
-        isOpen={showInviteModal}
-        onClose={() => { setShowInviteModal(false); setCopied(false); }}
-        title="🔗 Invite Link Ready!"
-        maxWidth={500}
-      >
-        {/* Group info */}
-        <div style={{
-          padding: '12px 16px', borderRadius: 10, marginBottom: 20,
-          background: 'var(--accent-soft)', border: '1px solid var(--accent-glow)',
-          fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6,
-        }}>
-          ✅ Member is send karo link. Wo khud apni email aur password set kare ga aur
-          automatically <strong style={{ color: 'var(--accent)' }}>{group?.name}</strong> mein join ho jae ga.
-          <br />
-          <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, display: 'block' }}>
-            ⏰ Valid for 7 days ·
-            {inviteExpiry && ` Expires: ${new Date(inviteExpiry).toLocaleDateString('en-PK', { day: 'numeric', month: 'short', year: 'numeric' })}`}
-          </span>
+                {showActions && (
+                  <div className="member-card__actions">
+                    {canManage && (
+                      <>
+                        <button
+                          type="button"
+                          className="member-action-btn member-action-btn--secondary"
+                          onClick={() => {
+                            setNewAdminId(member._id);
+                            setShowTransfer(true);
+                          }}
+                        >
+                          Make Admin
+                        </button>
+                        <button
+                          type="button"
+                          className="member-action-btn member-action-btn--danger"
+                          onClick={() => setRemoveId(member._id)}
+                        >
+                          Remove
+                        </button>
+                      </>
+                    )}
+
+                    {canLeave && (
+                      <button
+                        type="button"
+                        className="member-action-btn member-action-btn--danger member-action-btn--full"
+                        onClick={() => setShowLeave(true)}
+                      >
+                        Leave Group
+                      </button>
+                    )}
+                  </div>
+                )}
+              </article>
+            );
+          })}
         </div>
+      </section>
 
-        {/* Link display */}
-        <div style={{
-          background: 'var(--surface)', border: '1px solid var(--border)',
-          borderRadius: 10, padding: '12px 14px', marginBottom: 14,
-          fontFamily: 'monospace', fontSize: 12, color: 'var(--text-muted)',
-          wordBreak: 'break-all', lineHeight: 1.6,
-        }}>
-          {inviteLink}
-        </div>
-
-        {/* Action Buttons */}
-        <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
-          {/* Copy */}
-          <button
-            onClick={handleCopy}
-            style={{
-              flex: 1, padding: '11px', borderRadius: 10,
-              border: `1px solid ${copied ? 'var(--accent-glow)' : 'var(--border)'}`,
-              background: copied ? 'var(--accent-soft)' : 'var(--surface)',
-              color: copied ? 'var(--accent)' : 'var(--text-muted)',
-              fontWeight: 700, cursor: 'pointer', fontSize: 14,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-              transition: 'all .2s',
-            }}
-          >
-            <span>{copied ? '✅' : '📋'}</span>
-            <span>{copied ? 'Copied!' : 'Copy Link'}</span>
-          </button>
-
-          {/* WhatsApp */}
-          <button
-            onClick={handleWhatsApp}
-            style={{
-              flex: 1, padding: '11px', borderRadius: 10, border: 'none',
-              background: 'linear-gradient(135deg, #25D366, #128C7E)',
-              color: '#fff', fontWeight: 800, cursor: 'pointer', fontSize: 14,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-            }}
-          >
-            <span>💬</span>
-            <span>WhatsApp</span>
-          </button>
-        </div>
-
-        {/* Generate new link */}
-        <button
-          onClick={() => { setShowInviteModal(false); handleGenerateInvite(); }}
-          style={{
-            width: '100%', padding: '9px', borderRadius: 10,
-            border: '1px solid var(--border)', background: 'transparent',
-            color: 'var(--text-muted)', fontWeight: 600, cursor: 'pointer', fontSize: 12,
-          }}
-        >
-          🔄 Generate New Link (invalidates previous)
-        </button>
-      </Modal>
-
-      {/* ── Manual Add Member Modal ────────────────────────────────────────── */}
-      <Modal isOpen={showAdd} onClose={() => setShowAdd(false)} title="Add Member Manually">
-        <div style={{
-          padding: '10px 14px', borderRadius: 10, marginBottom: 16,
-          background: 'var(--yellow-soft)', border: '1px solid rgba(255,181,71,0.3)',
-          fontSize: 12, color: 'var(--yellow)', lineHeight: 1.5,
-        }}>
-          ⚠️ Admin yahan email/password set kar raha hai. Prefer karo "Invite via Link" taake member khud set kare.
-        </div>
-        <FormField label="Full Name" required>
-          <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Ali Khan" />
+      <Modal isOpen={showEditGroup} onClose={() => setShowEditGroup(false)} title="Edit Group Info">
+        <FormField label="Group Name" required>
+          <input value={editForm.name} onChange={(e) => setEditForm((form) => ({ ...form, name: e.target.value }))} />
         </FormField>
-        <FormField label="Email Address" required>
-          <input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="ali@example.com" />
+        <FormField label="Hostel Name">
+          <input value={editForm.hostelName} onChange={(e) => setEditForm((form) => ({ ...form, hostelName: e.target.value }))} placeholder="e.g. Fast Hostel Block B" />
         </FormField>
-        <FormField label="Temporary Password" required>
-          <input type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} placeholder="Min 6 characters" />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <FormField label="City">
+            <input value={editForm.city} onChange={(e) => setEditForm((form) => ({ ...form, city: e.target.value }))} placeholder="e.g. Lahore" />
+          </FormField>
+          <FormField label="University">
+            <input value={editForm.university} onChange={(e) => setEditForm((form) => ({ ...form, university: e.target.value }))} placeholder="e.g. FAST NUCES" />
+          </FormField>
+        </div>
+        <FormField label="Description">
+          <textarea value={editForm.description} onChange={(e) => setEditForm((form) => ({ ...form, description: e.target.value }))} rows={2} style={{ resize: 'vertical' }} />
         </FormField>
         <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={() => setShowAdd(false)} style={{
-            flex: 1, padding: '11px', borderRadius: 10,
-            border: '1px solid var(--border)', background: 'var(--surface)',
-            color: 'var(--text-muted)', fontWeight: 700, cursor: 'pointer',
-          }}>Cancel</button>
-          <button onClick={handleAdd} disabled={saving} style={{
-            flex: 2, padding: '11px', borderRadius: 10, border: 'none',
-            background: 'linear-gradient(135deg, #2ECC9A, #1A7A5C)',
-            color: '#000', fontWeight: 800,
-            cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1,
-          }}>
-            {saving ? 'Adding...' : 'Add Member'}
+          <button onClick={() => setShowEditGroup(false)} style={{ flex: 1, padding: '11px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-muted)', fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
+          <button onClick={handleUpdateGroup} disabled={saving} style={{ flex: 2, padding: '11px', borderRadius: 10, border: 'none', background: 'var(--button-primary-gradient)', color: 'var(--button-primary-text)', fontWeight: 800, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
+            {saving ? 'Saving...' : 'Save Changes'}
+          </button>
+        </div>
+      </Modal>
+
+      <Modal isOpen={showTransfer} onClose={() => { setShowTransfer(false); setNewAdminId(''); }} title="Transfer Admin Role" maxWidth={400}>
+        <p className="app-modal__message">
+          You will become a regular member. The selected person will become the new admin.
+        </p>
+        <FormField label="New Admin">
+          <select value={newAdminId} onChange={(e) => setNewAdminId(e.target.value)}>
+            <option value="">Select member...</option>
+            {nonAdminMembers.map((member) => (
+              <option key={member._id} value={member._id}>{member.name}</option>
+            ))}
+          </select>
+        </FormField>
+        <div className="app-modal__actions">
+          <button
+            type="button"
+            className="app-modal__action app-modal__action--secondary"
+            onClick={() => { setShowTransfer(false); setNewAdminId(''); }}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="app-modal__action app-modal__action--accent"
+            onClick={handleTransferAdmin}
+            disabled={transferring || !newAdminId}
+          >
+            {transferring ? '...' : 'Transfer'}
           </button>
         </div>
       </Modal>
@@ -409,7 +435,80 @@ const MembersPage = () => {
         title="Remove Member"
         confirmText="Remove"
         loading={removing}
-        message="Remove this member from the group? They must have a zero balance to be removed."
+        message="Remove this member? They must have a zero balance to be removed."
+      />
+
+      <Modal
+        isOpen={showLeave}
+        onClose={() => {
+          setShowLeave(false);
+          setLeaveAck(false);
+          setLeaveType('');
+          setLeaveError('');
+        }}
+        title="Leave Group"
+        maxWidth={440}
+      >
+        <div className="leave-confirm">
+          <div className="leave-confirm__text">
+            You can only leave if your balance is zero. Clear all dues before leaving.
+          </div>
+          {leaveError && (
+            <div className="leave-confirm__error">{leaveError}</div>
+          )}
+          <div className="leave-confirm__input">
+            <div>Type the group name to confirm</div>
+            <input
+              value={leaveType}
+              onChange={(e) => setLeaveType(e.target.value)}
+              placeholder={group?.name || 'Group name'}
+            />
+          </div>
+          <label className="leave-confirm__check">
+            <input
+              type="checkbox"
+              checked={leaveAck}
+              onChange={(e) => setLeaveAck(e.target.checked)}
+            />
+            <span>I understand I will lose access to this group.</span>
+          </label>
+          <div className="leave-confirm__actions">
+            <button
+              type="button"
+              className="leave-confirm__cancel"
+              onClick={() => {
+                setShowLeave(false);
+                setLeaveAck(false);
+                setLeaveType('');
+                setLeaveError('');
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="leave-confirm__confirm"
+              disabled={
+                leaving ||
+                !leaveAck ||
+                leaveType.trim().toLowerCase() !== (group?.name || '').trim().toLowerCase()
+              }
+              onClick={handleLeave}
+            >
+              {leaving ? 'Leaving...' : 'Leave Group'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      <ConfirmModal
+        isOpen={showDeleteGroup}
+        onClose={() => setShowDeleteGroup(false)}
+        onConfirm={handleDeleteGroup}
+        title="Delete Group"
+        confirmText="Delete Group"
+        loading={deletingGroup}
+        message="Delete this group permanently? All members, join requests, expenses, payments, and history for this group will be removed."
       />
     </div>
   );

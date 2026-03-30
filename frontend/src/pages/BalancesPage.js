@@ -1,321 +1,305 @@
-// pages/BalancesPage.js
-// PRIVACY RULES:
-//   Admin: sees all member balances, settlement suggestions, full group overview
-//   Member: sees ONLY their own balance — no other members' names, amounts, or status
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { balanceAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Spinner from '../components/Spinner';
 import { Avatar } from '../components/Layout';
-import toast from 'react-hot-toast';
+import { AVATAR_COLORS, alpha } from '../theme';
+
+const COLORS = AVATAR_COLORS;
+
+const formatCurrency = (amount) => `Rs. ${Math.abs(Number(amount || 0)).toLocaleString()}`;
+const formatSignedCurrency = (amount) => `${Number(amount || 0) >= 0 ? '+' : '-'}Rs. ${Math.abs(Number(amount || 0)).toLocaleString()}`;
+
+const StatCard = ({ label, value, hint, tone = 'default', valueVariant = 'metric' }) => (
+  <div className={`balances-stat balances-stat--${tone}`}>
+    <div className="balances-stat__label">{label}</div>
+    <div className={`balances-stat__value ${valueVariant === 'text' ? 'balances-stat__value--text' : ''}`}>{value}</div>
+    {hint && <div className="balances-stat__hint">{hint}</div>}
+  </div>
+);
+
+const NoGroup = () => (
+  <div className="members-empty balances-empty">
+    <div className="members-empty__glow" />
+    <div className="members-empty__icon">LEDGER</div>
+    <h3 className="members-empty__title">No Active Group</h3>
+    <p className="members-empty__text">Select or join a group to view balances and settlement details.</p>
+    <Link to="/groups" style={{ textDecoration: 'none' }}>
+      <button className="members-btn members-btn--primary" type="button">
+        Browse Groups -&gt;
+      </button>
+    </Link>
+  </div>
+);
+
+const MemberBalanceCard = ({ member, index }) => {
+  const accent = COLORS[index % COLORS.length];
+  const balance = Number(member.balance || 0);
+  const isSettled = balance === 0;
+  const owes = balance < 0;
+  const tone = isSettled ? 'positive' : owes ? 'danger' : 'info';
+  const statusText = isSettled ? 'Clear' : owes ? 'Pending payment' : 'In credit';
+  const nextStepText = isSettled ? 'No action needed' : owes ? 'Collect from member' : 'Offset in next cycle';
+  const amountLabel = isSettled ? 'Current position' : owes ? 'Amount due to admin' : 'Credit balance';
+  return (
+    <article
+      className={`balance-member-card balance-member-card--${tone}`}
+      style={{
+        '--balance-member-accent': accent,
+        '--balance-member-accent-soft': alpha(accent, 16),
+        '--balance-member-accent-wash': alpha(accent, 8),
+      }}
+    >
+      <div className="balance-member-card__header">
+        <div className="balance-member-card__identity">
+          <Avatar name={member.name} size={48} color={accent} />
+          <div className="balance-member-card__copy">
+            <h4 className="balance-member-card__name">{member.name}</h4>
+          </div>
+        </div>
+        <span className={`balance-member-card__status balance-member-card__status--${tone}`}>
+          {isSettled ? 'Settled' : owes ? 'Needs payment' : 'In credit'}
+        </span>
+      </div>
+
+      <div className={`balance-member-card__amount balance-member-card__amount--${tone}`}>
+        <div className="balance-member-card__amount-label">{amountLabel}</div>
+        <div className="balance-member-card__amount-value">{formatSignedCurrency(balance)}</div>
+      </div>
+
+      <div className="balance-member-card__meta">
+        <div className="balance-member-card__meta-item">
+          <span className="balance-member-card__meta-label">Status</span>
+          <span className="balance-member-card__meta-value">{statusText}</span>
+        </div>
+        <div className="balance-member-card__meta-item">
+          <span className="balance-member-card__meta-label">Next Step</span>
+          <span className="balance-member-card__meta-value">{nextStepText}</span>
+        </div>
+      </div>
+    </article>
+  );
+};
 
 const BalancesPage = () => {
-  const { user } = useAuth();
-  const [data, setData]       = useState(null);
+  const { user, activeGroupId, isAdmin } = useAuth();
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const isAdmin = user?.role === 'admin';
 
   useEffect(() => {
-    balanceAPI.getBalances()
-      .then(res => setData(res.data))
+    if (!activeGroupId) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    balanceAPI.getBalances(activeGroupId)
+      .then((res) => setData(res.data))
       .catch(() => toast.error('Failed to load balances'))
       .finally(() => setLoading(false));
-  }, []);
+  }, [activeGroupId]);
 
+  const members = data?.members || [];
+  const summary = data?.summary || {};
+  const settlements = data?.settlements || [];
+
+  const memberView = useMemo(() => {
+    const currentMember = members[0] || user || {};
+    const balance = Number(currentMember.balance || user?.balance || 0);
+    const settled = balance === 0;
+    const owes = balance < 0;
+
+    return {
+      currentMember,
+      balance,
+      settled,
+      owes,
+      tone: settled ? 'positive' : owes ? 'danger' : 'info',
+      statusLabel: settled ? 'Settled' : owes ? 'Outstanding' : 'In Credit',
+      directionLabel: settled ? 'No dues' : owes ? 'You -> Admin' : 'Admin -> You',
+      helperText: settled
+        ? 'You are all clear in this group.'
+        : owes
+          ? `You need to pay ${formatCurrency(balance)} to the admin.`
+          : `You currently have ${formatCurrency(balance)} in credit.`,
+    };
+  }, [members, user]);
+
+  const adminView = useMemo(() => {
+    const nonAdmins = members.filter((member) => member.role !== 'admin');
+    const settledCount = nonAdmins.filter((member) => Number(member.balance || 0) === 0).length;
+    const outstandingCount = nonAdmins.filter((member) => Number(member.balance || 0) < 0).length;
+    const creditCount = nonAdmins.filter((member) => Number(member.balance || 0) > 0).length;
+
+    return {
+      nonAdmins,
+      settledCount,
+      outstandingCount,
+      creditCount,
+      totalReceivable: Number(summary.totalReceivable || 0),
+      adminShareRemaining: Number(summary.adminShareStats?.remaining || 0),
+    };
+  }, [members, summary]);
+
+  if (!activeGroupId) return <NoGroup />;
   if (loading) return <Spinner message="Loading balances..." />;
 
-  // ─── MEMBER VIEW ──────────────────────────────────────────────────────────────
-  // Only shows the logged-in member's own balance. Nothing about others.
   if (!isAdmin) {
-    const myBalance = user?.balance ?? 0;
-    const settled   = myBalance === 0;
-    const owes      = myBalance < 0;
+    const { currentMember, balance, settled, owes, tone, statusLabel, directionLabel, helperText } = memberView;
+    const heroAccent = owes ? 'danger' : settled ? 'positive' : 'info';
 
     return (
-      <div>
-        <div style={{ marginBottom: 24 }}>
-          <h2 style={{
-            fontFamily: "'Syne', sans-serif", fontWeight: 900,
-            fontSize: 26, color: 'var(--text)', margin: 0,
-          }}>My Balance</h2>
-          <p style={{ color: 'var(--text-muted)', margin: '4px 0 0', fontSize: 13 }}>
-            Your current outstanding balance with the group
-          </p>
-        </div>
+      <div className="balances-page">
+        <section className={`balances-hero balances-hero--${heroAccent}`}>
+          <div className="balances-hero__bg balances-hero__bg--left" />
+          <div className="balances-hero__bg balances-hero__bg--right" />
 
-        {/* Big balance card */}
-        <div style={{
-          background: settled
-            ? 'linear-gradient(135deg, #0a1a12, #061210)'
-            : owes
-              ? 'linear-gradient(135deg, #1a0a0c, #120608)'
-              : 'linear-gradient(135deg, #0a1318, #060e12)',
-          border: `1px solid ${settled ? 'rgba(46,204,154,0.4)' : owes ? 'rgba(255,92,106,0.4)' : 'rgba(91,141,239,0.4)'}`,
-          borderRadius: 20, padding: '32px 28px', marginBottom: 24,
-          position: 'relative', overflow: 'hidden',
-        }}>
-          <div style={{
-            position: 'absolute', top: -40, right: -40, width: 150, height: 150,
-            borderRadius: '50%',
-            background: `radial-gradient(circle, ${settled ? 'rgba(46,204,154,0.1)' : owes ? 'rgba(255,92,106,0.1)' : 'rgba(91,141,239,0.1)'}, transparent 70%)`,
-            pointerEvents: 'none',
-          }} />
+          <div className="balances-hero__content">
+            <div className="balances-hero__copy">
+              <div className="balances-hero__eyebrow">Personal Balance</div>
+              <h2 className="balances-hero__title">My Balance</h2>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
-            <Avatar name={user?.name || '?'} size={52} color={settled ? '#2ECC9A' : owes ? '#FF5C6A' : '#5B8DEF'} />
+              <div className="balances-hero__meta">
+                <span className={`balances-chip balances-chip--${tone}`}>{statusLabel}</span>
+                <span className="balances-chip">{directionLabel}</span>
+                <span className="balances-chip">{formatCurrency(balance)}</span>
+              </div>
+            </div>
+
+            <div className={`balances-hero__spotlight balances-hero__spotlight--${tone}`}>
+              <Avatar name={currentMember?.name || user?.name || '?'} size={56} color={owes ? 'var(--red)' : settled ? 'var(--accent)' : 'var(--blue)'} />
+              <div className="balances-hero__spotlight-copy">
+                <div className="balances-hero__spotlight-name">{currentMember?.name || user?.name}</div>
+                <div className="balances-hero__spotlight-value">{formatSignedCurrency(balance)}</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="balances-stats-grid">
+          <StatCard label="Status" value={statusLabel} tone={tone} valueVariant="text" />
+          <StatCard label="Amount" value={formatCurrency(balance)} tone={tone} />
+          <StatCard label="Direction" value={directionLabel} tone="default" valueVariant="text" />
+        </section>
+
+        <section className="balances-section balances-section--focus">
+          <div className={`balances-focus balances-focus--${tone}`}>
             <div>
-              <div style={{ fontWeight: 700, fontSize: 18, color: 'var(--text)' }}>{user?.name}</div>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Member</div>
+              <div className="balances-focus__label">Summary</div>
+              <h3 className="balances-focus__title">{helperText}</h3>
+              <p className="balances-focus__copy">
+                {settled
+                  ? 'No action is required right now.'
+                  : owes
+                    ? 'Pay the admin and ask them to record the payment from the payments page.'
+                    : 'Your balance can be adjusted in the next settlement or expense cycle.'}
+              </p>
             </div>
-          </div>
 
-          <div style={{
-            fontFamily: "'Syne', sans-serif", fontWeight: 900,
-            fontSize: 48, letterSpacing: -2, lineHeight: 1,
-            color: settled ? '#2ECC9A' : owes ? '#FF5C6A' : '#5B8DEF',
-            marginBottom: 10,
-          }}>
-            {myBalance >= 0 ? '+' : ''}Rs. {myBalance.toLocaleString()}
-          </div>
-
-          <div style={{ fontSize: 15, color: 'rgba(255,255,255,0.5)', marginBottom: 20 }}>
-            {settled
-              ? '✅ You are fully settled with the group!'
-              : owes
-                ? `You owe Rs. ${Math.abs(myBalance).toLocaleString()} to the admin`
-                : `You have a positive balance of Rs. ${myBalance.toLocaleString()}`}
-          </div>
-
-          {owes && (
-            <div style={{
-              background: 'rgba(255,92,106,0.1)', border: '1px solid rgba(255,92,106,0.2)',
-              borderRadius: 12, padding: '14px 18px',
-            }}>
-              <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', lineHeight: 1.6 }}>
-                💡 <strong style={{ color: '#FF5C6A' }}>To settle up:</strong> Pay the admin
-                <strong style={{ color: 'var(--text)' }}> Rs. {Math.abs(myBalance).toLocaleString()}</strong> and
-                ask them to record the payment in the Payments section.
+            <div className="balances-focus__panel">
+              <div className="balances-focus__panel-label">Current Position</div>
+              <div className="balances-focus__panel-value">{formatSignedCurrency(balance)}</div>
+              <div className="balances-focus__panel-note">
+                {settled ? 'Fully cleared' : owes ? 'Pending payment' : 'Credit available'}
               </div>
             </div>
-          )}
-
-          {settled && (
-            <div style={{
-              background: 'rgba(46,204,154,0.1)', border: '1px solid rgba(46,204,154,0.2)',
-              borderRadius: 12, padding: '14px 18px',
-            }}>
-              <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', lineHeight: 1.6 }}>
-                🎉 Great job! You have no outstanding dues. You're all caught up.
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Status summary */}
-        <div style={{
-          background: 'var(--surface)', border: '1px solid var(--border)',
-          borderRadius: 16, padding: '20px 24px',
-        }}>
-          <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: 15, marginBottom: 16 }}>
-            Balance Summary
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>Status</span>
-              <span style={{
-                fontSize: 12, fontWeight: 700, padding: '4px 12px', borderRadius: 99,
-                background: settled ? 'var(--accent-soft)' : owes ? 'var(--red-soft)' : 'rgba(91,141,239,0.15)',
-                color: settled ? 'var(--accent)' : owes ? 'var(--red)' : '#5B8DEF',
-                border: `1px solid ${settled ? 'var(--accent-glow)' : owes ? 'rgba(255,92,106,0.3)' : 'rgba(91,141,239,0.3)'}`,
-              }}>
-                {settled ? 'Settled' : owes ? 'Outstanding' : 'Overpaid'}
-              </span>
-            </div>
-            <div style={{ height: 1, background: 'var(--border)' }} />
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>Amount</span>
-              <span style={{
-                fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 18,
-                color: settled ? 'var(--accent)' : owes ? 'var(--red)' : '#5B8DEF',
-              }}>
-                Rs. {Math.abs(myBalance).toLocaleString()}
-              </span>
-            </div>
-            <div style={{ height: 1, background: 'var(--border)' }} />
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>Direction</span>
-              <span style={{ fontSize: 13, color: 'var(--text)' }}>
-                {settled ? 'No dues' : owes ? 'You → Admin' : 'Admin → You'}
-              </span>
-            </div>
-          </div>
-        </div>
+        </section>
       </div>
     );
   }
 
-  // ─── ADMIN VIEW ───────────────────────────────────────────────────────────────
-  const members     = data?.members     || [];
-  const summary     = data?.summary     || {};
-  const settlements = data?.settlements || [];
-  const nonAdmins   = members.filter(m => m.role !== 'admin');
-  const COLORS = ['#2ECC9A', '#5B8DEF', '#FFB547', '#E879F9', '#FB923C', '#34D399'];
-
-  const settledCount    = nonAdmins.filter(m => m.balance === 0).length;
-  const outstandingCount = nonAdmins.filter(m => m.balance < 0).length;
-
+  const { nonAdmins, settledCount, outstandingCount, creditCount, totalReceivable, adminShareRemaining } = adminView;
   return (
-    <div>
-      <div style={{ marginBottom: 24 }}>
-        <h2 style={{
-          fontFamily: "'Syne', sans-serif", fontWeight: 900,
-          fontSize: 26, color: 'var(--text)', margin: 0,
-        }}>Balances</h2>
-        <p style={{ color: 'var(--text-muted)', margin: '4px 0 0', fontSize: 13 }}>
-          Group financial overview — who owes what
-        </p>
-      </div>
+    <div className="balances-page">
+      <section className="balances-hero">
+        <div className="balances-hero__bg balances-hero__bg--left" />
+        <div className="balances-hero__bg balances-hero__bg--right" />
 
-      {/* Summary row */}
-      <div style={{
-        display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
-        gap: 16, marginBottom: 24,
-      }}>
-        <div style={{
-          background: 'var(--surface)', border: '1px solid var(--accent-glow)',
-          borderRadius: 16, padding: '18px 20px', textAlign: 'center',
-        }}>
-          <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 900, fontSize: 24, color: 'var(--accent)' }}>
-            Rs. {(summary.totalReceivable || 0).toLocaleString()}
-          </div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600, letterSpacing: 0.8, marginTop: 4 }}>
-            Total Receivable
-          </div>
-        </div>
-        <div style={{
-          background: 'var(--surface)', border: '1px solid rgba(255,92,106,0.3)',
-          borderRadius: 16, padding: '18px 20px', textAlign: 'center',
-        }}>
-          <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 900, fontSize: 24, color: 'var(--red)' }}>
-            {outstandingCount}
-          </div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600, letterSpacing: 0.8, marginTop: 4 }}>
-            Outstanding
-          </div>
-        </div>
-        <div style={{
-          background: 'var(--surface)', border: '1px solid rgba(46,204,154,0.3)',
-          borderRadius: 16, padding: '18px 20px', textAlign: 'center',
-        }}>
-          <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 900, fontSize: 24, color: '#2ECC9A' }}>
-            {settledCount}
-          </div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600, letterSpacing: 0.8, marginTop: 4 }}>
-            Settled
-          </div>
-        </div>
-      </div>
+        <div className="balances-hero__content">
+          <div className="balances-hero__copy">
+            <div className="balances-hero__eyebrow">Group Ledger</div>
+            <h2 className="balances-hero__title">Balances</h2>
 
-      {/* Member balance list */}
-      <div style={{
-        background: 'var(--surface)', border: '1px solid var(--border)',
-        borderRadius: 16, overflow: 'hidden', marginBottom: 24,
-      }}>
-        <div style={{ padding: '18px 20px 14px', borderBottom: '1px solid var(--border)' }}>
-          <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: 15 }}>Member Balances</div>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
-            {nonAdmins.length} members · {outstandingCount} outstanding
-          </div>
-        </div>
-
-        {nonAdmins.map((m, i) => {
-          const color   = COLORS[i % COLORS.length];
-          const isSettled = m.balance === 0;
-          const owes    = m.balance < 0;
-          return (
-            <div key={m._id} style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '14px 20px',
-              borderBottom: i < nonAdmins.length - 1 ? '1px solid var(--border)' : 'none',
-              transition: 'background .15s',
-            }}
-              onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-alt)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                <Avatar name={m.name} size={42} color={color} />
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)' }}>{m.name}</div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{m.email}</div>
-                </div>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-                <div style={{
-                  fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 16,
-                  color: isSettled ? 'var(--accent)' : owes ? 'var(--red)' : '#5B8DEF',
-                }}>
-                  {m.balance >= 0 ? '+' : ''}Rs. {m.balance.toLocaleString()}
-                </div>
-                <span style={{
-                  fontSize: 10, padding: '2px 8px', borderRadius: 99, fontWeight: 700,
-                  background: isSettled ? 'var(--accent-soft)' : owes ? 'var(--red-soft)' : 'rgba(91,141,239,0.15)',
-                  color: isSettled ? 'var(--accent)' : owes ? 'var(--red)' : '#5B8DEF',
-                  border: `1px solid ${isSettled ? 'var(--accent-glow)' : owes ? 'rgba(255,92,106,0.3)' : 'rgba(91,141,239,0.3)'}`,
-                }}>
-                  {isSettled ? 'Settled' : owes ? `Owes Rs. ${Math.abs(m.balance).toLocaleString()}` : 'Overpaid'}
-                </span>
-              </div>
+            <div className="balances-hero__meta">
+              <span className="balances-chip balances-chip--positive">{nonAdmins.length} members</span>
+              <span className="balances-chip balances-chip--danger">{outstandingCount} outstanding</span>
+              <span className="balances-chip balances-chip--info">{settledCount} settled</span>
+              {creditCount > 0 && <span className="balances-chip">{creditCount} in credit</span>}
             </div>
-          );
-        })}
-      </div>
-
-      {/* Settlement suggestions */}
-      {settlements.length > 0 && (
-        <div style={{
-          background: 'var(--surface)', border: '1px solid var(--border)',
-          borderRadius: 16, padding: '18px 20px',
-        }}>
-          <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: 15, marginBottom: 14 }}>
-            Settlement Plan
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {settlements.map((s, i) => (
-              <div key={i} style={{
-                display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
-                background: 'var(--surface-alt)', border: '1px solid var(--border)',
-                borderRadius: 12, padding: '12px 16px',
-              }}>
-                <span style={{
-                  fontSize: 13, fontWeight: 700, color: 'var(--red)',
-                  background: 'var(--red-soft)', padding: '4px 10px', borderRadius: 99,
-                }}>{s.from}</span>
-                <span style={{ color: 'var(--text-muted)', fontSize: 18 }}>→</span>
-                <span style={{
-                  fontSize: 13, fontWeight: 700, color: 'var(--accent)',
-                  background: 'var(--accent-soft)', padding: '4px 10px', borderRadius: 99,
-                }}>{s.to}</span>
-                <span style={{ marginLeft: 'auto', fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 16, color: 'var(--text)' }}>
-                  Rs. {s.amount.toLocaleString()}
-                </span>
-              </div>
+
+          <div className="balances-hero__summary">
+            <div className="balances-hero__summary-label">Total Receivable</div>
+            <div className="balances-hero__summary-value">{formatCurrency(totalReceivable)}</div>
+          </div>
+        </div>
+      </section>
+
+      <section className="balances-stats-grid">
+        <StatCard label="Total Receivable" value={formatCurrency(totalReceivable)} tone="positive" />
+        <StatCard label="Outstanding" value={outstandingCount} tone="danger" />
+        <StatCard label="Settled" value={settledCount} tone="info" />
+        <StatCard label="Admin Share Left" value={formatCurrency(adminShareRemaining)} tone={adminShareRemaining > 0 ? 'warning' : 'default'} />
+      </section>
+
+      <section className="balances-section">
+        <div className="balances-section__header">
+          <div>
+            <h3 className="balances-section__title">Member Balances</h3>
+          </div>
+          <div className="balances-section__hint">{outstandingCount} pending</div>
+        </div>
+
+        <div className="balances-members-grid">
+          {nonAdmins.map((member, index) => (
+            <MemberBalanceCard key={member._id} member={member} index={index} />
+          ))}
+        </div>
+      </section>
+
+      <section className="balances-section">
+        <div className="balances-section__header">
+          <div>
+            <h3 className="balances-section__title">Settlement Plan</h3>
+          </div>
+          <div className="balances-section__hint">{settlements.length} transfers</div>
+        </div>
+
+        {settlements.length > 0 ? (
+          <div className="balances-settlement-list">
+            {settlements.map((settlement, index) => (
+              <article key={`${settlement.fromId || settlement.from}-${index}`} className="balances-settlement-item">
+                <div className="balances-settlement-item__parties">
+                  <div className="balances-settlement-party balances-settlement-party--from">
+                    <div className="balances-settlement-party__label">From</div>
+                    <div className="balances-settlement-party__name">{settlement.from}</div>
+                  </div>
+
+                  <div className="balances-settlement-item__connector" aria-hidden="true">
+                    <span className="balances-settlement-item__line" />
+                    <span className="balances-settlement-item__arrow">-&gt;</span>
+                    <span className="balances-settlement-item__line" />
+                  </div>
+
+                  <div className="balances-settlement-party balances-settlement-party--to">
+                    <div className="balances-settlement-party__label">To</div>
+                    <div className="balances-settlement-party__name">{settlement.to}</div>
+                  </div>
+                </div>
+                <div className="balances-settlement-item__amount">{formatCurrency(settlement.amount)}</div>
+              </article>
             ))}
           </div>
-        </div>
-      )}
-
-      {settlements.length === 0 && (
-        <div style={{
-          background: 'var(--accent-soft)', border: '1px solid var(--accent-glow)',
-          borderRadius: 16, padding: '24px 28px', textAlign: 'center',
-        }}>
-          <div style={{ fontSize: 32, marginBottom: 8 }}>🎉</div>
-          <div style={{ fontWeight: 700, color: 'var(--accent)', fontSize: 16, marginBottom: 4 }}>
-            Everyone is settled!
+        ) : (
+          <div className="balances-settled-empty">
+            <div className="balances-settled-empty__title">Everyone is settled</div>
+            <div className="balances-settled-empty__copy">No transfers are needed at the moment.</div>
           </div>
-          <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>No outstanding dues in the group.</div>
-        </div>
-      )}
+        )}
+      </section>
     </div>
   );
 };

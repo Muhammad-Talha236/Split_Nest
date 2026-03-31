@@ -34,7 +34,7 @@ const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('khatanest_token');
+  const token = localStorage.getItem('splitnest_token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
@@ -43,15 +43,15 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('khatanest_token');
-      localStorage.removeItem('khatanest_user');
+      localStorage.removeItem('splitnest_token');
+      localStorage.removeItem('splitnest_user');
       window.location.href = '/login';
     }
     return Promise.reject(error);
   }
 );
 
-// ─── Auth ──────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Auth â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const authAPI = {
   register          : (data)            => api.post('/auth/register', data),
   login             : (data)            => api.post('/auth/login', data),
@@ -62,7 +62,7 @@ export const authAPI = {
   resetPassword     : (token, password) => api.post(`/auth/reset-password/${token}`, { password }),
 };
 
-// ─── Groups ────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Groups â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const groupAPI = {
   getAllGroups      : (params)               => api.get('/groups', { params: cleanParams(params) }),
   getMyGroups       : ()                     => api.get('/groups/my'),
@@ -80,7 +80,7 @@ export const groupAPI = {
   monthlyReset      : (id)                   => api.post(`/groups/${normalizeId(id)}/reset`),
 };
 
-// ─── Expenses (nested under group) ─────────────────────────────────────────
+// â”€â”€â”€ Expenses (nested under group) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const expenseAPI = {
   getExpenses  : (groupId, params)    => api.get(`/groups/${normalizeId(groupId)}/expenses`, { params: cleanParams(params) }),
   addExpense   : (groupId, data)      => api.post(`/groups/${normalizeId(groupId)}/expenses`, data),
@@ -89,14 +89,14 @@ export const expenseAPI = {
   getStats     : (groupId)            => api.get(`/groups/${normalizeId(groupId)}/expenses/stats`),
 };
 
-// ─── Payments (nested under group) ─────────────────────────────────────────
+// â”€â”€â”€ Payments (nested under group) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const paymentAPI = {
   getPayments  : (groupId, params)  => api.get(`/groups/${normalizeId(groupId)}/payments`, { params: cleanParams(params) }),
   recordPayment: (groupId, data)    => api.post(`/groups/${normalizeId(groupId)}/payments`, data),
   deletePayment: (groupId, id)      => api.delete(`/groups/${normalizeId(groupId)}/payments/${normalizeId(id)}`),
 };
 
-// ─── Balances (nested under group) ─────────────────────────────────────────
+// â”€â”€â”€ Balances (nested under group) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const balanceAPI = {
   getBalances: (groupId)          => api.get(`/groups/${normalizeId(groupId)}/balances`),
   getHistory : (groupId, params)  => api.get(`/groups/${normalizeId(groupId)}/balances/history`, { params: cleanParams(params) }),

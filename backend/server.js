@@ -11,7 +11,7 @@ const Expense      = require('./models/Expense');
 const requiredEnv = ['MONGODB_URI', 'JWT_SECRET', 'JWT_EXPIRE'];
 const missingEnv  = requiredEnv.filter(k => !process.env[k]);
 if (missingEnv.length > 0) {
-  console.error(`❌ Missing required env vars: ${missingEnv.join(', ')}`);
+  console.error(`Ã¢ÂÅ’ Missing required env vars: ${missingEnv.join(', ')}`);
   process.exit(1);
 }
 
@@ -53,10 +53,10 @@ if (process.env.NODE_ENV !== 'test') {
 }
 
 // Health
-app.get('/', (_req, res) => res.json({ message: 'KhataNest API is running', status: 'ok' }));
+app.get('/', (_req, res) => res.json({ message: 'SplitNest API is running', status: 'ok' }));
 app.get('/api/health', (_req, res) => res.json({ success: true, message: 'OK', timestamp: new Date() }));
 
-// ─── Routes ───────────────────────────────────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Routes Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 app.use('/api/auth',    require('./routes/auth'));
 app.use('/api/groups',  require('./routes/group'));
 
@@ -87,18 +87,18 @@ cron.schedule(cronSchedule, async () => {
       { $set: { description: '', descriptionCleared: true } }
     );
     if (result.modifiedCount > 0) {
-      console.log(`🧹 Auto-cleared ${result.modifiedCount} expense description(s)`);
+      console.log(`[cleanup] Auto-cleared ${result.modifiedCount} expense description(s)`);
     }
   } catch (err) {
-    console.error('❌ Cron error:', err.message);
+    console.error('[cron] Error:', err.message);
   }
 });
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 KhataNest running on port ${PORT}`);
-  console.log(`🌍 Env: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🔐 CORS: ${allowedOrigins.join(', ')}`);
+  console.log(`[server] SplitNest running on port ${PORT}`);
+  console.log(`[env] ${process.env.NODE_ENV || 'development'}`);
+  console.log(`[cors] ${allowedOrigins.join(', ')}`);
 });
 
 module.exports = app;

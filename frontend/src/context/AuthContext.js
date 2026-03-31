@@ -47,26 +47,26 @@ const normalizeUser = (rawUser) => {
 export const AuthProvider = ({ children }) => {
   const [user,    setUser]    = useState(null);
   const [loading, setLoading] = useState(true);
-  const [token,   setToken]   = useState(localStorage.getItem('khatanest_token'));
+  const [token,   setToken]   = useState(localStorage.getItem('splitnest_token'));
 
   const syncUserFromServer = useCallback(async () => {
     const res = await authAPI.getMe();
     const normalizedUser = normalizeUser(res.data.user);
     setUser(normalizedUser);
-    localStorage.setItem('khatanest_user', JSON.stringify(normalizedUser));
+    localStorage.setItem('splitnest_user', JSON.stringify(normalizedUser));
     return normalizedUser;
   }, []);
 
   const logout = useCallback(() => {
-    localStorage.removeItem('khatanest_token');
-    localStorage.removeItem('khatanest_user');
+    localStorage.removeItem('splitnest_token');
+    localStorage.removeItem('splitnest_user');
     setToken(null); setUser(null);
   }, []);
 
   useEffect(() => {
     const initAuth = async () => {
-      const savedToken = localStorage.getItem('khatanest_token');
-      const savedUser  = localStorage.getItem('khatanest_user');
+      const savedToken = localStorage.getItem('splitnest_token');
+      const savedUser  = localStorage.getItem('splitnest_user');
       if (savedToken && savedUser) {
         try {
           setUser(normalizeUser(JSON.parse(savedUser)));
@@ -82,8 +82,8 @@ export const AuthProvider = ({ children }) => {
     const res = await authAPI.login({ email, password });
     const { token, user } = res.data;
     const normalizedUser = normalizeUser(user);
-    localStorage.setItem('khatanest_token', token);
-    localStorage.setItem('khatanest_user', JSON.stringify(normalizedUser));
+    localStorage.setItem('splitnest_token', token);
+    localStorage.setItem('splitnest_user', JSON.stringify(normalizedUser));
     setToken(token); setUser(normalizedUser);
     return await syncUserFromServer();
   }, [syncUserFromServer]);
@@ -92,8 +92,8 @@ export const AuthProvider = ({ children }) => {
     const res = await authAPI.register(data);
     const { token, user } = res.data;
     const normalizedUser = normalizeUser(user);
-    localStorage.setItem('khatanest_token', token);
-    localStorage.setItem('khatanest_user', JSON.stringify(normalizedUser));
+    localStorage.setItem('splitnest_token', token);
+    localStorage.setItem('splitnest_user', JSON.stringify(normalizedUser));
     setToken(token); setUser(normalizedUser);
     return await syncUserFromServer();
   }, [syncUserFromServer]);
@@ -101,7 +101,7 @@ export const AuthProvider = ({ children }) => {
   const updateUser = useCallback((updatedUser) => {
     const normalizedUser = normalizeUser(updatedUser);
     setUser(normalizedUser);
-    localStorage.setItem('khatanest_user', JSON.stringify(normalizedUser));
+    localStorage.setItem('splitnest_user', JSON.stringify(normalizedUser));
   }, []);
 
   const switchGroup = useCallback(async (groupId) => {

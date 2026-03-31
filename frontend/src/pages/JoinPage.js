@@ -47,8 +47,8 @@ const JoinPage = () => {
       });
 
       const { token: jwt, user } = response.data;
-      localStorage.setItem('khatanest_token', jwt);
-      localStorage.setItem('khatanest_user', JSON.stringify(user));
+      localStorage.setItem('splitnest_token', jwt);
+      localStorage.setItem('splitnest_user', JSON.stringify(user));
       window.location.href = '/dashboard';
     } catch (error) {
       const message = error.response?.data?.message || 'Registration failed';
@@ -108,7 +108,7 @@ const JoinPage = () => {
             K
           </div>
           <h1 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 900, fontSize: 30, color: 'var(--text)', margin: 0, letterSpacing: -1 }}>
-            Join KhataNest
+            Join SplitNest
           </h1>
 
           <div style={{ marginTop: 16, padding: '12px 20px', borderRadius: 16, background: 'var(--accent-soft)', border: '1px solid var(--accent-glow)', display: 'inline-block', boxShadow: 'var(--shadow)' }}>
@@ -137,15 +137,15 @@ const JoinPage = () => {
             <label style={{ display: 'block', marginBottom: 6, fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8 }}>Password *</label>
             <div style={{ position: 'relative' }}>
               <input type={showPass ? 'text' : 'password'} value={form.password} onChange={set('password')} placeholder="Min 6 characters" style={{ width: '100%', paddingRight: 54 }} />
-              <button type="button" onClick={() => setShowPass((current) => !current)} aria-label={showPass ? 'Hide password' : 'Show password'} title={showPass ? 'Hide password' : 'Show password'} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--accent)', fontWeight: 700, fontSize: 12, padding: 0 }}>
-                {showPass ? '🙈' : '🙉'}
+              <button type="button" onClick={() => setShowPass((current) => !current)} aria-label={showPass ? 'Hide' : 'Show'} title={showPass ? 'Hide' : 'Show'} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--accent)', fontWeight: 700, fontSize: 12, padding: 0 }}>
+                {showPass ? 'Hide' : 'Show'}
               </button>
             </div>
           </div>
 
           <div style={{ marginBottom: 22 }}>
             <label style={{ display: 'block', marginBottom: 6, fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8 }}>Confirm Password *</label>
-            <input type={showPass ? 'text' : 'password'} value={form.confirmPassword} onChange={set('confirmPassword')} placeholder="Re-enter password" style={{ width: '100%', borderColor: form.confirmPassword && form.password !== form.confirmPassword ? 'var(--accent)' : undefined }} />
+            <input type={showPass ? 'Hide' : 'Show'} value={form.confirmPassword} onChange={set('confirmPassword')} placeholder="Re-enter password" style={{ width: '100%', borderColor: form.confirmPassword && form.password !== form.confirmPassword ? 'var(--accent)' : undefined }} />
             {form.confirmPassword && form.password !== form.confirmPassword && <div style={{ marginTop: 4, fontSize: 12, color: 'var(--accent)' }}>Passwords do not match</div>}
           </div>
 

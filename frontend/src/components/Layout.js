@@ -8,15 +8,15 @@ import toast from 'react-hot-toast';
 import { alpha } from '../theme';
 
 const NAV_ITEMS = [
-  { path: '/dashboard',      icon: '◈', label: 'Dashboard' },
-  { path: '/groups',         icon: '🏘️', label: 'Groups' },
-  { path: '/expenses',       icon: '🧾', label: 'Expenses' },
-  { path: '/payments',       icon: '💵', label: 'Payments' },
-  { path: '/balances',       icon: '⚖️', label: 'Balances' },
-  { path: '/history',        icon: '📜', label: 'History' },
-  { path: '/members',        icon: '👥', label: 'Members', adminOnly: true },
-  { path: '/group-requests', icon: '✉️', label: 'Requests', adminOnly: true },
-  { path: '/my-requests',    icon: '📩', label: 'My Requests', memberOnly: true },
+  { path: '/dashboard',      icon: '\u25C8', label: 'Dashboard' },
+  { path: '/groups',         icon: '\u{1F3D8}\uFE0F', label: 'Groups' },
+  { path: '/expenses',       icon: '\u{1F9FE}', label: 'Expenses' },
+  { path: '/payments',       icon: '\u{1F4B5}', label: 'Payments' },
+  { path: '/balances',       icon: '\u2696\uFE0F', label: 'Balances' },
+  { path: '/history',        icon: '\u{1F4DC}', label: 'History' },
+  { path: '/members',        icon: '\u{1F465}', label: 'Members', adminOnly: true },
+  { path: '/group-requests', icon: '\u2709\uFE0F', label: 'Requests', adminOnly: true },
+  { path: '/my-requests',    icon: '\u{1F4E9}', label: 'My Requests', memberOnly: true },
 ];
 
 export const Avatar = ({ name, size = 36, color = 'var(--accent)' }) => {
@@ -250,7 +250,7 @@ const Layout = ({ children }) => {
     return true;
   });
 
-  const currentPage = visibleNav.find((item) => location.pathname === item.path)?.label || 'KhataNest';
+  const currentPage = visibleNav.find((item) => location.pathname === item.path)?.label || 'SplitNest';
 
   const topBalancePositive = (user?.balance || 0) >= 0;
   const balanceBg = topBalancePositive ? 'var(--accent-soft)' : 'var(--red-soft)';
@@ -282,7 +282,7 @@ const Layout = ({ children }) => {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <BrandMark small />
-            <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 900, color: 'var(--text)' }}>KhataNest</span>
+            <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 900, color: 'var(--text)' }}>SplitNest</span>
           </div>
 
           <ThemeToggleButton compact />
@@ -389,7 +389,7 @@ const Layout = ({ children }) => {
                 <BrandMark />
                 <div>
                   <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 900, fontSize: 18, color: 'var(--text)', letterSpacing: -0.5 }}>
-                    KhataNest
+                    SplitNest
                   </div>
                   <div style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: 1, textTransform: 'uppercase' }}>
                     SHARED FINANCE
@@ -481,7 +481,7 @@ const Layout = ({ children }) => {
 
             <div style={{ fontSize: isMobile ? 13 : 14, color: 'var(--text-muted)' }}>
               <span style={{ color: 'var(--text)', fontWeight: 800 }}>{currentPage}</span>
-              {!isMobile && <span> · KhataNest</span>}
+              {!isMobile && <span> | SplitNest</span>}
             </div>
           </div>
 
@@ -597,7 +597,7 @@ const Layout = ({ children }) => {
                   textAlign: 'center',
                 }}
               >
-                Browse Groups →
+                Browse Groups ->
               </Link>
             </div>
           )}

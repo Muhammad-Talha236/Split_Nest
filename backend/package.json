@@ -1,7 +1,7 @@
 {
-  "name": "khatanest-backend",
+  "name": "splitnest-backend",
   "version": "1.0.0",
-  "description": "KhataNest Hostel Expense Management - Backend API",
+  "description": "SplitNest Hostel Expense Management - Backend API",
   "main": "server.js",
   "engines": {
     "node": ">=18.0.0"

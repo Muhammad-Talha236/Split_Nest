@@ -23,7 +23,7 @@ const ProtectedRoute = ({ children, adminOnly = false }) => {
   const { isAuthenticated, loading, isAdmin } = useAuth();
   if (loading) return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <Spinner message="Loading KhataNest..." />
+      <Spinner message="Loading SplitNest..." />
     </div>
   );
   if (!isAuthenticated) return <Navigate to="/login" replace />;

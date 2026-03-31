@@ -1,4 +1,4 @@
-/* KhataNest legacy color system
+/* SplitNest legacy color system
    Fonts: Plus Jakarta Sans (body/UI), Syne (brand), JetBrains Mono (numbers) */
 
 *, *::before, *::after {

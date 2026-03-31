@@ -113,63 +113,51 @@ const HistoryPage = () => {
               const tone = isSelfShare ? 'self' : isPayment ? 'payment' : 'expense';
               const amountPrefix = isPayment ? '+' : '-';
               const toneLabel = isSelfShare ? 'My share' : isPayment ? 'Payment' : 'Expense';
-              const badgeLabel = isSelfShare ? 'ME' : isPayment ? 'IN' : 'EX';
               const formattedDate = format(new Date(item.date), 'MMM d, yyyy');
               const splitLabel = item.type === 'expense'
                 ? (item.splitMode === 'percentage' ? 'Percentage split' : 'Equal split')
                 : null;
               const sourceLabel = item.member && !item.dividedAmong ? `From ${item.member.name}` : null;
               const hasTags = Boolean(item.category || item.paymentMethod || splitLabel);
-              const hasNote = Boolean(item.description || sourceLabel);
+              const noteText = [item.description, sourceLabel].filter(Boolean).join(' • ');
+              const hasNote = Boolean(noteText);
 
               return (
                 <article key={item._id} className={`history-card history-card--${tone}`}>
-                  <div className="history-card__rail" />
                   <div className="history-card__inner">
-                    <div className="history-card__top">
-                      <div className={`history-card__badge history-card__badge--${tone}`}>{badgeLabel}</div>
-                      <div className="history-card__main">
-                        <div className="history-card__header">
-                          <span className={`history-card__eyebrow history-card__eyebrow--${tone}`}>{toneLabel}</span>
-                          <h3 className="history-card__title">{item.title}</h3>
-                        </div>
+                    <div className="history-card__main">
+                      <div className="history-card__header">
+                        <span className={`history-card__eyebrow history-card__eyebrow--${tone}`}>{toneLabel}</span>
+                      </div>
+                      <div className="history-card__headline">
+                        <h3 className="history-card__title">{item.title}</h3>
                         {hasNote && (
-                          <div className="history-card__note">
-                            {item.description && (
-                              <div className="history-card__description">{item.description}</div>
-                            )}
-                            {sourceLabel && (
-                              <div className="history-card__note-meta">{sourceLabel}</div>
-                            )}
-                          </div>
-                        )}
-                        {!hasNote && (
-                          <div className="history-card__note history-card__note--empty" />
+                          <div className="history-card__description history-card__description--inline">{noteText}</div>
                         )}
                       </div>
-                      <div className="history-card__side">
-                        <div className={`history-card__amount-box history-card__amount-box--${tone}`}>
-                          <div className={`history-card__amount history-card__amount--${tone}`}>
-                            {amountPrefix}Rs. {Number(item.amount || 0).toLocaleString()}
-                          </div>
-                          <div className="history-card__date">{formattedDate}</div>
+
+                      {hasTags && (
+                        <div className="history-card__tags">
+                          {splitLabel && (
+                            <span className="history-tag history-tag--warn">{splitLabel}</span>
+                          )}
+                          {item.paymentMethod && (
+                            <span className={`history-tag history-tag--${tone}`}>
+                              {item.paymentMethod.replace('_', ' ')}
+                            </span>
+                          )}
+                          {item.category && (
+                            <span className="history-tag history-tag--muted">{item.category}</span>
+                          )}
                         </div>
-                        {hasTags && (
-                          <div className="history-card__side-tags">
-                            {splitLabel && (
-                              <span className="history-tag history-tag--warn">{splitLabel}</span>
-                            )}
-                            {item.paymentMethod && (
-                              <span className={`history-tag history-tag--${tone}`}>
-                                {item.paymentMethod.replace('_', ' ')}
-                              </span>
-                            )}
-                            {item.category && (
-                              <span className="history-tag history-tag--muted">{item.category}</span>
-                            )}
-                          </div>
-                        )}
+                      )}
+                    </div>
+
+                    <div className="history-card__amount-panel">
+                      <div className={`history-card__amount history-card__amount--${tone}`}>
+                        {amountPrefix}Rs. {Number(item.amount || 0).toLocaleString()}
                       </div>
+                      <div className="history-card__date">{formattedDate}</div>
                     </div>
                   </div>
                 </article>

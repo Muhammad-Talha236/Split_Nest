@@ -1,6 +1,6 @@
-# KhataNest
+# SplitNest
 
-KhataNest is a MERN stack app for managing shared group expenses, balances, and payments. It is built for hostel rooms, flats, and small groups that need a simple shared ledger with admin controls, member views, group joining, and transaction history.
+SplitNest is a MERN stack app for managing shared group expenses, balances, and payments. It is built for hostel rooms, flats, and small groups that need a simple shared ledger with admin controls, member views, group joining, and transaction history.
 
 ## Stack
 
@@ -25,7 +25,7 @@ KhataNest is a MERN stack app for managing shared group expenses, balances, and 
 ## Project Structure
 
 ```text
-Khatanest/
+SplitNest/
 |-- backend/
 |   |-- config/
 |   |-- controllers/
@@ -98,7 +98,7 @@ Create `backend/.env`:
 ```env
 PORT=5000
 NODE_ENV=development
-MONGODB_URI=mongodb://127.0.0.1:27017/khatanest
+MONGODB_URI=mongodb://127.0.0.1:27017/splitnest
 JWT_SECRET=replace_with_a_long_random_secret
 JWT_EXPIRE=7d
 CLIENT_URL=http://localhost:3000

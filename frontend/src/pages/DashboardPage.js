@@ -354,7 +354,16 @@ const AdminDashboard = ({ user, stats, history, navigate }) => {
         {adminSummaryCards.map((card) => (
           <article key={card.label} className={`admin-dash-summary-card admin-dash-summary-card--${card.tone}`}>
             <span className="admin-dash-summary-card__label">{card.label}</span>
-            <strong className="admin-dash-summary-card__value">{card.value}</strong>
+            <strong className="admin-dash-summary-card__value">
+              {typeof card.value === 'string' && card.value.startsWith('Rs. ') ? (
+                <>
+                  <span className="admin-dash-summary-card__currency">Rs.</span>
+                  <span>{card.value.slice(4)}</span>
+                </>
+              ) : (
+                card.value
+              )}
+            </strong>
           </article>
         ))}
       </section>

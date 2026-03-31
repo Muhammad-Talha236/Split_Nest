@@ -31,7 +31,7 @@ const generateToken = (id) => {
   });
 };
 
-// ─── Format user response ──────────────────────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Format user response Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 const formatUser = (user, activeGroupId = null) => {
   const activeGid  = normalizeId(activeGroupId || user.activeGroupId);
   const membership = activeGid
@@ -51,7 +51,7 @@ const formatUser = (user, activeGroupId = null) => {
   };
 };
 
-// @desc    Register user only — no automatic group creation
+// @desc    Register user only Ã¢â‚¬â€ no automatic group creation
 //          User creates or joins a group from the Groups page after registration
 // @route   POST /api/auth/register
 const register = async (req, res) => {
@@ -149,7 +149,7 @@ const switchGroup = async (req, res) => {
   }
 };
 
-// ─── PASSWORD RESET ────────────────────────────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ PASSWORD RESET Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
@@ -169,7 +169,7 @@ const forgotPassword = async (req, res) => {
     const html = `
       <div style="max-width:520px;margin:40px auto;background:#111318;border:1px solid #1E2229;border-radius:16px;overflow:hidden;font-family:Arial,sans-serif;">
         <div style="background:linear-gradient(135deg,#2ECC9A,#1A7A5C);padding:32px 40px;text-align:center;">
-          <h1 style="margin:0;color:#fff;font-size:22px;font-weight:800;">KhataNest</h1>
+          <h1 style="margin:0;color:#fff;font-size:22px;font-weight:800;">SplitNest</h1>
         </div>
         <div style="padding:36px 40px;">
           <h2 style="color:#E8EAF0;">Reset Your Password</h2>
@@ -182,7 +182,7 @@ const forgotPassword = async (req, res) => {
       </div>
     `;
 
-    await sendEmail({ to: user.email, subject: '🔑 Reset Your KhataNest Password', html });
+    await sendEmail({ to: user.email, subject: 'Reset Your SplitNest Password', html });
     res.json({ success: true, message: 'Password reset link sent to your email.' });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to send reset email.' });

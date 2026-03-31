@@ -4,7 +4,7 @@ const ThemeContext = createContext();
 
 export const ThemeProvider = ({ children }) => {
   const [theme, setTheme] = useState(() => {
-    const saved = localStorage.getItem('khatanest_theme');
+    const saved = localStorage.getItem('splitnest_theme');
     if (saved === 'light' || saved === 'dark') return saved;
     return 'dark';
   });
@@ -13,7 +13,7 @@ export const ThemeProvider = ({ children }) => {
     document.documentElement.setAttribute('data-theme', theme);
     document.body.setAttribute('data-theme', theme);
     document.documentElement.style.colorScheme = theme;
-    localStorage.setItem('khatanest_theme', theme);
+    localStorage.setItem('splitnest_theme', theme);
   }, [theme]);
 
   const value = useMemo(() => ({

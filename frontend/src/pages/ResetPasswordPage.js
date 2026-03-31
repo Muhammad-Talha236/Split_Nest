@@ -41,8 +41,8 @@ const ResetPasswordPage = () => {
       const response = await authAPI.resetPassword(token, form.password);
       const { token: jwt, user } = response.data;
 
-      localStorage.setItem('khatanest_token', jwt);
-      localStorage.setItem('khatanest_user', JSON.stringify(user));
+      localStorage.setItem('splitnest_token', jwt);
+      localStorage.setItem('splitnest_user', JSON.stringify(user));
       updateUser(user);
 
       toast.success('Password reset! Logging you in...');
@@ -153,7 +153,7 @@ const ResetPasswordPage = () => {
               </label>
               <div style={{ position: 'relative' }}>
                 <input
-                  type={showPass ? 'text' : 'password'}
+                  type={showPass ? 'Hide' : 'Show'}
                   value={form.password}
                   onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))}
                   placeholder="Min 6 characters"
@@ -161,8 +161,8 @@ const ResetPasswordPage = () => {
                   autoFocus
                   style={{ width: '100%', padding: '11px 54px 11px 14px' }}
                 />
-                <button type="button" onClick={() => setShowPass((current) => !current)} aria-label={showPass ? 'Hide password' : 'Show password'} title={showPass ? 'Hide password' : 'Show password'} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--accent)', fontWeight: 700, fontSize: 12, padding: 0 }}>
-                  {showPass ? '🙈' : '🙉'}
+                <button type="button" onClick={() => setShowPass((current) => !current)} aria-label={showPass ? 'Hide' : 'Show'} title={showPass ? 'Hide' : 'Show'} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--accent)', fontWeight: 700, fontSize: 12, padding: 0 }}>
+                  {showPass ? 'Hide' : 'Show'}
                 </button>
               </div>
 
@@ -183,7 +183,7 @@ const ResetPasswordPage = () => {
                 Confirm Password
               </label>
               <input
-                type={showPass ? 'text' : 'password'}
+                type={showPass ? 'Hide' : 'Show'}
                 value={form.confirmPassword}
                 onChange={(event) => setForm((current) => ({ ...current, confirmPassword: event.target.value }))}
                 placeholder="Re-enter your password"

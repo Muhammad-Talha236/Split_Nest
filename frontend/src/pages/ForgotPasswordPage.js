@@ -143,7 +143,7 @@ const ForgotPasswordPage = () => {
         ) : (
           <div style={{ background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 24, padding: 28, boxShadow: 'var(--shadow)' }}>
             <p style={{ color: 'var(--text-muted)', fontSize: 13, lineHeight: 1.7, margin: '0 0 24px' }}>
-              Enter the email address linked to your KhataNest account and we&apos;ll send you a secure reset link.
+              Enter the email address linked to your SplitNest account and we&apos;ll send you a secure reset link.
             </p>
 
             <form onSubmit={handleSubmit}>

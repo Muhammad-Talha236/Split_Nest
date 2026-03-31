@@ -1,5 +1,5 @@
 // pages/MyRequestsPage.js - Member sees their sent requests
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { groupAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Spinner from '../components/Spinner';
@@ -19,6 +19,8 @@ const MyRequestsPage = () => {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('all');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const mobileMenuRef = useRef(null);
 
   useEffect(() => {
     groupAPI.getMyRequests()
@@ -39,11 +41,26 @@ const MyRequestsPage = () => {
     return requests.filter(r => r.status === activeFilter);
   }, [activeFilter, requests]);
 
+  useEffect(() => {
+    if (!mobileMenuOpen) return undefined;
+
+    const handlePointerDown = (event) => {
+      if (!mobileMenuRef.current?.contains(event.target)) {
+        setMobileMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, [mobileMenuOpen]);
+
   const statusClass = (status) => {
     if (status === 'accepted') return 'my-request-card--accepted';
     if (status === 'rejected') return 'my-request-card--rejected';
     return 'my-request-card--pending';
   };
+
+  const activeFilterMeta = FILTERS.find((filter) => filter.key === activeFilter) || FILTERS[0];
 
   if (loading) return <Spinner message="Loading your requests..." />;
 
@@ -67,6 +84,35 @@ const MyRequestsPage = () => {
       </section>
 
       <section className="my-requests-filter">
+        <div ref={mobileMenuRef} className="my-requests-filter__dropdown">
+          <button
+            type="button"
+            className="my-requests-filter__trigger"
+            onClick={() => setMobileMenuOpen((current) => !current)}
+            aria-expanded={mobileMenuOpen}
+            aria-label="Filter your requests by status"
+          >
+            <span>{`${activeFilterMeta.label} (${counts[activeFilterMeta.key]})`}</span>
+            <span className={`my-requests-filter__chevron ${mobileMenuOpen ? 'my-requests-filter__chevron--open' : ''}`} />
+          </button>
+          {mobileMenuOpen && (
+            <div className="my-requests-filter__menu">
+              {FILTERS.map(filter => (
+                <button
+                  key={filter.key}
+                  type="button"
+                  className={`my-requests-filter__option ${activeFilter === filter.key ? 'my-requests-filter__option--active' : ''}`}
+                  onClick={() => {
+                    setActiveFilter(filter.key);
+                    setMobileMenuOpen(false);
+                  }}
+                >
+                  <span>{`${filter.label} (${counts[filter.key]})`}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         {FILTERS.map(filter => (
           <button
             key={filter.key}
@@ -102,7 +148,7 @@ const MyRequestsPage = () => {
                   <div className="my-request-card__main">
                     <div className="my-request-card__group">{group?.name || 'Unknown Group'}</div>
                     <div className="my-request-card__meta">
-                      {[group?.hostelName, group?.city].filter(Boolean).join(' · ') || 'Group details not available'}
+                      {[group?.hostelName, group?.city].filter(Boolean).join(' | ') || 'Group details not available'}
                     </div>
                     {req.message && (
                       <div className="my-request-card__message">Your message: "{req.message}"</div>
@@ -111,9 +157,9 @@ const MyRequestsPage = () => {
                       <div className="my-request-card__reason">Reason: {req.rejectedReason}</div>
                     )}
                     <div className="my-request-card__time">
-                      Sent {format(new Date(req.createdAt), 'MMM d, yyyy · h:mm a')}
+                      Sent {format(new Date(req.createdAt), 'MMM d, yyyy | h:mm a')}
                       {req.handledAt && (
-                        <> · {req.status === 'accepted' ? 'Accepted' : 'Rejected'} {format(new Date(req.handledAt), 'MMM d, yyyy')}</>
+                        <> | {req.status === 'accepted' ? 'Accepted' : 'Rejected'} {format(new Date(req.handledAt), 'MMM d, yyyy')}</>
                       )}
                     </div>
                   </div>

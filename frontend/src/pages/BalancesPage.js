@@ -54,7 +54,7 @@ const MemberBalanceCard = ({ member, index }) => {
     >
       <div className="balance-member-card__header">
         <div className="balance-member-card__identity">
-          <Avatar name={member.name} size={48} color={accent} />
+          <Avatar name={member.name} size={42} color={accent} />
           <div className="balance-member-card__copy">
             <h4 className="balance-member-card__name">{member.name}</h4>
           </div>

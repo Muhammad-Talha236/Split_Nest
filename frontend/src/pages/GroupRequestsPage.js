@@ -1,5 +1,5 @@
 // pages/GroupRequestsPage.js - Admin manages join requests
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { groupAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { Avatar } from '../components/Layout';
@@ -24,6 +24,8 @@ const GroupRequestsPage = () => {
   const [rejectReason, setRejectReason] = useState('');
   const [handling, setHandling] = useState(false);
   const [counts, setCounts] = useState({ pending: 0, accepted: 0, rejected: 0 });
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const mobileMenuRef = useRef(null);
 
   const loadRequests = useCallback(async () => {
     if (!activeGroupId) return;
@@ -65,6 +67,19 @@ const GroupRequestsPage = () => {
     loadCounts();
   }, [loadCounts]);
 
+  useEffect(() => {
+    if (!mobileMenuOpen) return undefined;
+
+    const handlePointerDown = (event) => {
+      if (!mobileMenuRef.current?.contains(event.target)) {
+        setMobileMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, [mobileMenuOpen]);
+
   const refreshAll = async () => {
     await Promise.all([loadRequests(), loadCounts()]);
   };
@@ -102,6 +117,7 @@ const GroupRequestsPage = () => {
   };
 
   const totalRequests = counts.pending + counts.accepted + counts.rejected;
+  const activeTabMeta = TABS.find((tab) => tab.key === activeTab) || TABS[0];
 
   return (
     <div className="requests-page">
@@ -124,6 +140,35 @@ const GroupRequestsPage = () => {
       </section>
 
       <section className="requests-switcher">
+        <div ref={mobileMenuRef} className="requests-switcher__dropdown">
+          <button
+            type="button"
+            className="requests-switcher__trigger"
+            onClick={() => setMobileMenuOpen((current) => !current)}
+            aria-expanded={mobileMenuOpen}
+            aria-label="Filter requests by status"
+          >
+            <span>{`${activeTabMeta.label} (${counts[activeTabMeta.key]})`}</span>
+            <span className={`requests-switcher__chevron ${mobileMenuOpen ? 'requests-switcher__chevron--open' : ''}`} />
+          </button>
+          {mobileMenuOpen && (
+            <div className="requests-switcher__menu">
+              {TABS.map(tab => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  className={`requests-switcher__option ${activeTab === tab.key ? 'requests-switcher__option--active' : ''}`}
+                  onClick={() => {
+                    setActiveTab(tab.key);
+                    setMobileMenuOpen(false);
+                  }}
+                >
+                  <span>{`${tab.label} (${counts[tab.key]})`}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         {TABS.map(tab => (
           <button
             key={tab.key}
@@ -164,7 +209,7 @@ const GroupRequestsPage = () => {
                       <div className="request-card__message">"{req.message}"</div>
                     )}
                     <div className="request-card__meta">
-                      Requested {format(new Date(req.createdAt), 'MMM d, yyyy · h:mm a')}
+                      Requested {format(new Date(req.createdAt), 'MMM d, yyyy | h:mm a')}
                     </div>
                     {req.status === 'rejected' && req.rejectedReason && (
                       <div className="request-card__reason">Reason: {req.rejectedReason}</div>

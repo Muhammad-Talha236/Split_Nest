@@ -1,5 +1,5 @@
 // pages/HistoryPage.js
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { balanceAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Spinner from '../components/Spinner';
@@ -35,6 +35,8 @@ const HistoryPage = () => {
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0 });
   const [filter, setFilter] = useState('all');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const mobileMenuRef = useRef(null);
 
   const load = useCallback(async (page = 1) => {
     if (!activeGroupId) {
@@ -57,7 +59,22 @@ const HistoryPage = () => {
     load(1);
   }, [load]);
 
+  useEffect(() => {
+    if (!mobileMenuOpen) return undefined;
+
+    const handlePointerDown = (event) => {
+      if (!mobileMenuRef.current?.contains(event.target)) {
+        setMobileMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, [mobileMenuOpen]);
+
   if (!activeGroupId) return <NoGroup />;
+
+  const activeFilterMeta = FILTERS.find((item) => item.key === filter) || FILTERS[0];
 
   return (
     <div className="history-page">
@@ -66,7 +83,7 @@ const HistoryPage = () => {
           <span className="history-hero__eyebrow">AUDIT TRAIL</span>
           <h2 className="history-hero__title">Transaction History</h2>
           <p className="history-hero__subtitle">
-            Full ledger for your group. Descriptions auto-clear after 21 days.
+            Full ledger for your group.
           </p>
           <div className="history-hero__chips">
             <span className="history-chip">{pagination.total} total</span>
@@ -81,6 +98,35 @@ const HistoryPage = () => {
       </section>
 
       <section className="history-filter">
+        <div ref={mobileMenuRef} className="history-filter__dropdown">
+          <button
+            type="button"
+            className="history-filter__trigger"
+            onClick={() => setMobileMenuOpen((current) => !current)}
+            aria-expanded={mobileMenuOpen}
+            aria-label="Filter history"
+          >
+            <span>{activeFilterMeta.label}</span>
+            <span className={`history-filter__chevron ${mobileMenuOpen ? 'history-filter__chevron--open' : ''}`} />
+          </button>
+          {mobileMenuOpen && (
+            <div className="history-filter__menu">
+              {FILTERS.map(item => (
+                <button
+                  key={item.key}
+                  type="button"
+                  className={`history-filter__option ${filter === item.key ? 'history-filter__option--active' : ''}`}
+                  onClick={() => {
+                    setFilter(item.key);
+                    setMobileMenuOpen(false);
+                  }}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         {FILTERS.map(item => (
           <button
             key={item.key}

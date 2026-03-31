@@ -488,23 +488,24 @@ const Layout = ({ children }) => {
           <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 10 }}>
             {!isMobile && <GroupSwitcher />}
 
-            {user && !isMobile && (
+            {user && (
               <div
                 style={{
-                  padding: '6px 12px',
+                  padding: isMobile ? '6px 10px' : '6px 12px',
                   borderRadius: 999,
-                  fontSize: 12,
+                  fontSize: isMobile ? 11 : 12,
                   fontWeight: 800,
                   background: balanceBg,
                   color: balanceFg,
                   border: `1px solid ${balanceBorder}`,
+                  whiteSpace: 'nowrap',
                 }}
               >
                 {(user.balance || 0) >= 0 ? '+' : ''}Rs. {(user.balance || 0).toLocaleString()}
               </div>
             )}
 
-            <ThemeToggleButton compact={isMobile} />
+            {!isMobile && <ThemeToggleButton compact={isMobile} />}
 
             {!isMobile && (
               <button
@@ -526,7 +527,7 @@ const Layout = ({ children }) => {
         </header>
 
         <main style={{ flex: 1, padding: isCompactMobile ? 12 : isMobile ? 16 : 24, overflowY: 'auto', maxWidth: '100%' }} className="page-enter">
-          {isMobile && activeGroupId && (
+          {isMobile && activeGroupId && location.pathname === '/dashboard' && (
             <div
               style={{
                 marginBottom: 14,
@@ -541,23 +542,8 @@ const Layout = ({ children }) => {
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8 }}>
-                  Active Group
+                  Switch Group
                 </div>
-                {user && (
-                  <div
-                    style={{
-                      padding: '6px 10px',
-                      borderRadius: 999,
-                      fontSize: 11,
-                      fontWeight: 800,
-                      background: balanceBg,
-                      color: balanceFg,
-                      border: `1px solid ${balanceBorder}`,
-                    }}
-                  >
-                    {(user.balance || 0) >= 0 ? '+' : ''}Rs. {(user.balance || 0).toLocaleString()}
-                  </div>
-                )}
               </div>
               <GroupSwitcher />
             </div>

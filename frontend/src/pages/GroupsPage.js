@@ -12,6 +12,27 @@ import { AVATAR_COLORS } from '../theme';
 
 const COLORS = AVATAR_COLORS;
 
+const SearchIcon = () => (
+  <svg viewBox="0 0 24 24" aria-hidden="true" width="18" height="18">
+    <circle cx="11" cy="11" r="6" fill="none" stroke="currentColor" strokeWidth="2" />
+    <path d="M20 20l-4.2-4.2" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+  </svg>
+);
+
+const PinIcon = () => (
+  <svg viewBox="0 0 24 24" aria-hidden="true" width="14" height="14">
+    <path
+      d="M12 21s-5.5-5.2-5.5-10A5.5 5.5 0 0 1 17.5 11C17.5 15.8 12 21 12 21Z"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <circle cx="12" cy="11" r="1.8" fill="currentColor" />
+  </svg>
+);
+
 const GroupsPage = () => {
   const { user, switchGroup, activeGroupId, updateUser } = useAuth();
   const navigate = useNavigate();
@@ -238,7 +259,7 @@ const GroupsPage = () => {
             aria-label={`Delete ${group.name}`}
             title="Delete group"
           >
-            🗑️
+            Del
           </button>
         )}
         {canLeave && !isDiscover && (
@@ -277,8 +298,13 @@ const GroupsPage = () => {
         <div className="group-card__title">{group.name}</div>
         <div className="group-card__org">{group.hostelName || group.university || 'Shared group'}</div>
         <div className="group-card__location">
-          <span className="group-card__pin">📍</span>
-          {group.city || 'Unknown'}{group.university ? ` · ${group.university}` : ''}
+          <span className="group-card__pin">Ã°Å¸â€œÂ</span>
+          {group.city || 'Unknown'}{group.university ? ` Ã‚Â· ${group.university}` : ''}
+        </div>
+
+        <div className="group-card__location group-card__location--clean">
+          <span className="group-card__pin"><PinIcon /></span>
+          {[group.city || 'Unknown', group.university].filter(Boolean).join(' | ')}
         </div>
 
         <div className="group-card__divider" />
@@ -447,7 +473,7 @@ const GroupsPage = () => {
       </section>
 
       <div className="groups-search">
-        <span className="groups-search__icon">🔍</span>
+        <span className="groups-search__icon"><SearchIcon /></span>
         <input
           placeholder="Search groups by name, org, or city..."
           value={search}
@@ -492,7 +518,7 @@ const GroupsPage = () => {
 
       {loading ? <Spinner message="Loading groups..." /> : groups.length === 0 ? (
         <EmptyState
-          icon="🏘️"
+          icon="Ã°Å¸ÂËœÃ¯Â¸Â"
           title="No groups found"
           message={search ? `No groups match "${search}"` : 'Be the first to create a group!'}
           action={
@@ -552,8 +578,8 @@ const GroupsPage = () => {
         <FormField label="Visibility">
           <div style={{ display: 'flex', gap: 10 }}>
             {[
-              { val: true, label: '🌐 Public', desc: 'Anyone can find & request to join' },
-              { val: false, label: '🔒 Private', desc: 'Only visible to members' },
+              { val: true, label: 'Ã°Å¸Å’Â Public', desc: 'Anyone can find & request to join' },
+              { val: false, label: 'Ã°Å¸â€â€™ Private', desc: 'Only visible to members' },
             ].map(opt => (
               <label key={opt.label} style={{
                 flex: 1, padding: '10px 14px', borderRadius: 10, cursor: 'pointer',

@@ -118,6 +118,19 @@ Notes:
 - `CLIENT_URL` supports comma-separated origins if you need more than one frontend host.
 - Email variables are needed for forgot-password emails.
 
+## Keep Secrets Safe
+
+- Put real secrets only in `backend/.env` and `frontend/.env`.
+- Do not paste real passwords, MongoDB URIs, JWT secrets, or SMTP credentials into source files.
+- This repo already ignores `.env` files through [`.gitignore`](f:\MERN DEV\Khatanest\Khatanest\.gitignore), so local secret files should not be pushed to GitHub.
+- Safe files to commit are `backend/.env.example` and `frontend/.env.example` because they only contain placeholders.
+- If you already pushed a real secret before, rotate it immediately.
+
+1. Change the MongoDB database password or connection string in MongoDB Atlas.
+2. Change the email app password or SMTP password.
+3. Replace the JWT secret in your local and deployed environment variables.
+4. Remove the old secret from Git history if it was committed.
+
 ### 3. Optional frontend environment file
 
 Create `frontend/.env` if you want to override the default API URL:
@@ -253,3 +266,4 @@ This repository already includes:
 ## License
 
 This project is currently private/internal unless you choose to add a license.
+

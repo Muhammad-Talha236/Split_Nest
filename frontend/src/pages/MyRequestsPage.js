@@ -6,6 +6,7 @@ import Spinner from '../components/Spinner';
 import EmptyState from '../components/EmptyState';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
+import { Link } from 'react-router-dom';
 
 const FILTERS = [
   { key: 'all', label: 'All' },
@@ -129,11 +130,17 @@ const MyRequestsPage = () => {
       {filtered.length === 0 ? (
         <div className="my-requests-empty">
           <EmptyState
-            icon="mail"
+            eyebrow={activeFilter === 'all' ? 'Tracker' : 'Filtered View'}
+            icon="MAIL"
             title={activeFilter === 'all' ? 'No requests sent' : `No ${activeFilter} requests`}
             message={activeFilter === 'all'
               ? "You haven't requested to join any group yet. Go to Groups to find one."
               : `No ${activeFilter} requests found for your account.`}
+            action={activeFilter === 'all' ? (
+              <Link to="/groups" className="expenses-empty-state__action">
+                Browse Groups
+              </Link>
+            ) : null}
           />
         </div>
       ) : (

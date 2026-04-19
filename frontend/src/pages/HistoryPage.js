@@ -17,16 +17,17 @@ const FILTERS = [
 ];
 
 const NoGroup = () => (
-  <section className="history-empty-group">
-    <div className="history-empty-group__icon">LOG</div>
-    <h3 className="history-empty-group__title">No Active Group</h3>
-    <p className="history-empty-group__text">Select or join a group to view transaction history.</p>
-    <Link to="/groups" style={{ textDecoration: 'none' }}>
-      <button type="button" className="history-empty-group__cta">
+  <EmptyState
+    eyebrow="Ledger"
+    icon="LOG"
+    title="No Active Group"
+    message="Join a group to unlock transaction history, payment entries, and your complete activity timeline."
+    action={(
+      <Link to="/groups" className="expenses-empty-state__action">
         Browse Groups
-      </button>
-    </Link>
-  </section>
+      </Link>
+    )}
+  />
 );
 
 const HistoryPage = () => {
@@ -144,7 +145,8 @@ const HistoryPage = () => {
       ) : history.length === 0 ? (
         <div className="history-empty">
           <EmptyState
-            icon="history"
+            eyebrow="Ledger"
+            icon="HISTORY"
             title="No transactions found"
             message="Transactions will appear here once you start adding expenses and payments."
           />

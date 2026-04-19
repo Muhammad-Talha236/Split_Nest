@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { expenseAPI, balanceAPI } from '../services/api';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import Spinner from '../components/Spinner';
+import EmptyState from '../components/EmptyState';
 import { Avatar } from '../components/Layout';
 import { format } from 'date-fns';
 import { AVATAR_COLORS } from '../theme';
@@ -19,32 +20,17 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 const NoGroup = () => (
-  <div style={{ textAlign: 'center', padding: '60px 24px' }}>
-    <div style={{ fontSize: 64, marginBottom: 20 }}>Home</div>
-    <h2 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 900, color: 'var(--text)', fontSize: 24, margin: '0 0 12px' }}>
-      No Active Group
-    </h2>
-    <p style={{ color: 'var(--text-muted)', fontSize: 14, lineHeight: 1.7, marginBottom: 28, maxWidth: 360, margin: '0 auto 28px' }}>
-      You are not part of any group yet. Create a new group or join an existing one to start tracking expenses.
-    </p>
-    <Link to="/groups">
-      <button
-        style={{
-          padding: '12px 32px',
-          borderRadius: 12,
-          border: 'none',
-          background: 'var(--button-primary-gradient)',
-          color: 'var(--button-primary-text)',
-          fontWeight: 800,
-          fontSize: 15,
-          cursor: 'pointer',
-          boxShadow: 'var(--shadow)',
-        }}
-      >
+  <EmptyState
+    eyebrow="Get Started"
+    icon="HOME"
+    title="No Active Group"
+    message="You are not part of any group yet. Join an existing one or create your own to start tracking expenses, balances, and payments."
+    action={(
+      <Link to="/groups" className="expenses-empty-state__action">
         Browse Groups
-      </button>
-    </Link>
-  </div>
+      </Link>
+    )}
+  />
 );
 
 const MemberDashboard = ({ user, stats, history, navigate }) => {

@@ -313,7 +313,7 @@ const LoginPage = () => {
                     <span style={{ fontWeight: 700, color: strength.color }}>{strength.label}</span>
                     {strength.score <= 2 && <span style={{ color: 'var(--text-muted)' }}>- try adding numbers or symbols</span>}
                     {strength.score === 3 && <span style={{ color: 'var(--text-muted)' }}>- almost there!</span>}
-                    {strength.score >= 4 && <span style={{ color: strength.color }}>ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ</span>}
+                    {strength.score >= 4 && <span style={{ color: strength.color }}>- looks good</span>}
                   </div>
                 </div>
               )}
@@ -350,7 +350,7 @@ const LoginPage = () => {
                   animation: 'errIn .2s ease',
                 }}
               >
-                <span style={{ fontSize: 14, flexShrink: 0, marginTop: 1 }}>ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã‚Â¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â</span>
+                <span style={{ fontSize: 14, flexShrink: 0, marginTop: 1 }}>!</span>
                 <span style={{ fontSize: 13, color: '#FF7C86', fontWeight: 600, lineHeight: 1.45 }}>{error}</span>
               </div>
             )}

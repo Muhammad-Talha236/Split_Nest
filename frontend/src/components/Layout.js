@@ -160,6 +160,8 @@ const UserProfileModal = ({ isOpen, onClose, user, activeGroupName, groupCount }
   const shareRemaining = Math.max(0, (user.adminShareOwed || 0) - (user.adminSharePaid || 0));
   const balanceTone = (user.balance || 0) >= 0 ? 'positive' : 'danger';
   const shareTone = shareRemaining > 0 ? 'danger' : 'positive';
+  const balanceLabel = (user.balance || 0) >= 0 ? 'In credit' : 'Amount due';
+  const summaryLabel = user.role === 'admin' ? 'Admin share summary' : 'My payment summary';
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="My Profile" maxWidth={560} className="profile-modal">
@@ -175,7 +177,7 @@ const UserProfileModal = ({ isOpen, onClose, user, activeGroupName, groupCount }
           </div>
         </div>
         <div className={`profile-modal__balance profile-modal__balance--${balanceTone}`}>
-          <div className="profile-modal__balance-label">Current Balance</div>
+          <div className="profile-modal__balance-label">{balanceLabel}</div>
           <div className="profile-modal__balance-value">Rs. {(user.balance || 0).toLocaleString()}</div>
         </div>
       </div>
@@ -189,7 +191,7 @@ const UserProfileModal = ({ isOpen, onClose, user, activeGroupName, groupCount }
 
       <div className="profile-modal__summary">
         <div className="profile-modal__summary-label">
-          Payment Summary
+          {summaryLabel}
         </div>
         <div className="profile-modal__summary-grid">
           <div className="profile-modal__summary-item">

@@ -31,7 +31,7 @@ const Modal = ({ isOpen, onClose, title, children, maxWidth = 480, className = '
             onClick={onClose}
             aria-label="Close modal"
           >
-            <span className="app-modal__close-icon">×</span>
+            <span className="app-modal__close-icon">&times;</span>
           </button>
         </div>
         <div className="app-modal__body">{children}</div>

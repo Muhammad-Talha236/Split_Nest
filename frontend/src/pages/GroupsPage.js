@@ -33,31 +33,6 @@ const PinIcon = () => (
   </svg>
 );
 
-const GlobeIcon = () => (
-  <svg viewBox="0 0 24 24" aria-hidden="true" width="14" height="14">
-    <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" strokeWidth="1.8" />
-    <path d="M4 12h16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-    <path d="M12 4a12 12 0 0 1 0 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-    <path d="M12 4a12 12 0 0 0 0 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-  </svg>
-);
-
-const LockIcon = () => (
-  <svg viewBox="0 0 24 24" aria-hidden="true" width="14" height="14">
-    <rect x="6" y="10" width="12" height="9" rx="2.2" fill="none" stroke="currentColor" strokeWidth="1.8" />
-    <path d="M8.5 10V8.3a3.5 3.5 0 0 1 7 0V10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-  </svg>
-);
-
-const GroupIcon = () => (
-  <svg viewBox="0 0 24 24" aria-hidden="true" width="40" height="40">
-    <circle cx="9" cy="10" r="3" fill="none" stroke="currentColor" strokeWidth="1.8" />
-    <circle cx="16.5" cy="9.5" r="2.5" fill="none" stroke="currentColor" strokeWidth="1.8" />
-    <path d="M4.5 18c.7-2.4 2.8-4 5.5-4s4.8 1.6 5.5 4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    <path d="M14.5 17.2c.5-1.5 1.8-2.6 3.5-2.9 1-.2 1.7-.1 2.5.3" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-  </svg>
-);
-
 const GroupsPage = () => {
   const { user, switchGroup, activeGroupId, updateUser } = useAuth();
   const navigate = useNavigate();
@@ -284,7 +259,7 @@ const GroupsPage = () => {
             aria-label={`Delete ${group.name}`}
             title="Delete group"
           >
-            Del
+            🗑️
           </button>
         )}
         {canLeave && !isDiscover && (
@@ -321,7 +296,13 @@ const GroupsPage = () => {
         </div>
 
         <div className="group-card__title">{group.name}</div>
-        <div className="group-card__org">{group.hostelName || group.university || 'Shared group'}</div>        <div className="group-card__location group-card__location--clean">
+        <div className="group-card__org">{group.hostelName || group.university || 'Shared group'}</div>
+        <div className="group-card__location">
+          <span className="group-card__pin">Ã°Å¸â€œÂ</span>
+          {group.city || 'Unknown'}{group.university ? ` Ã‚Â· ${group.university}` : ''}
+        </div>
+
+        <div className="group-card__location group-card__location--clean">
           <span className="group-card__pin"><PinIcon /></span>
           {[group.city || 'Unknown', group.university].filter(Boolean).join(' | ')}
         </div>
@@ -492,7 +473,7 @@ const GroupsPage = () => {
       </section>
 
       <div className="groups-search">
-        <span className="groups-search__icon"><SearchIcon /></span>
+        <span className="groups-search__icon">🔍</span>
         <input
           placeholder="Search groups by name, org, or city..."
           value={search}
@@ -537,7 +518,7 @@ const GroupsPage = () => {
 
       {loading ? <Spinner message="Loading groups..." /> : groups.length === 0 ? (
         <EmptyState
-          icon={<GroupIcon />}
+          icon="Ã°Å¸ÂËœÃ¯Â¸Â"
           title="No groups found"
           message={search ? `No groups match "${search}"` : 'Be the first to create a group!'}
           action={
@@ -597,8 +578,8 @@ const GroupsPage = () => {
         <FormField label="Visibility">
           <div style={{ display: 'flex', gap: 10 }}>
             {[
-              { val: true, label: 'Public', desc: 'Anyone can find & request to join', icon: <GlobeIcon /> },
-              { val: false, label: 'Private', desc: 'Only visible to members', icon: <LockIcon /> },
+              { val: true, label: 'Ã°Å¸Å’Â Public', desc: 'Anyone can find & request to join' },
+              { val: false, label: 'Ã°Å¸â€â€™ Private', desc: 'Only visible to members' },
             ].map(opt => (
               <label key={opt.label} style={{
                 flex: 1, padding: '10px 14px', borderRadius: 10, cursor: 'pointer',
